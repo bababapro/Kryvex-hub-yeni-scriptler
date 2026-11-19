@@ -1,0 +1,122 @@
+-- Kryvex Hub | +1 Loot Evo (WindUI)
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualUser = game:GetService("VirtualUser")
+
+local LocalPlayer = Players.LocalPlayer
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/ummarxfarooq/WindUI/refs/heads/main/dist/main.lua"))()
+
+local Window = WindUI:CreateWindow({
+    Title = "Kryvex - +1 Loot Evo",
+    Icon = "flame",
+    Author = "Kryvex",
+    Folder = "KryvexLootEvo",
+    Theme = "Dark",
+    Size = UDim2.fromOffset(780, 520),
+    Transparent = true,
+    Resizable = true
+})
+
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
+local clickRemote = Remotes:FindFirstChild("ClickRequest")
+local rebirthRemote = Remotes:FindFirstChild("RebirthRequest")
+local buyEggRemote = Remotes:FindFirstChild("BuyEggEvent")
+
+local LootState = {
+    AutoClick = false,
+    AutoRebirth = false,
+    AntiAFK = true,
+    ClickDelay = 0.08
+}
+
+LocalPlayer.Idled:Connect(function()
+    if LootState.AntiAFK then
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
+    end
+end)
+
+task.spawn(function()
+    while true do
+        if LootState.AutoClick and clickRemote then
+            pcall(function()
+                clickRemote:FireServer()
+            end)
+        end
+        task.wait(LootState.ClickDelay)
+    end
+end)
+
+task.spawn(function()
+    while true do
+        if LootState.AutoRebirth and rebirthRemote then
+            pcall(function()
+                rebirthRemote:FireServer()
+            end)
+        end
+        task.wait(5)
+    end
+end)
+
+local FarmTab = Window:Tab({ Title = "Auto Farm", Icon = "swords" })
+local MiscTab = Window:Tab({ Title = "Utilities", Icon = "settings" })
+
+local ClickSec = FarmTab:Section({ Title = "Clicking & Progression", Box = true, Opened = true })
+
+ClickSec:Toggle({
+    Title = "Auto Click",
+    Desc = "Sends click requests automatically for power and damage.",
+    Value = false,
+    Callback = function(state)
+        LootState.AutoClick = state
+    end
+})
+
+ClickSec:Slider({
+    Title = "Click Interval (Seconds)",
+    Value = { Min = 0.03, Max = 0.5, Default = 0.08 },
+    Step = 0.01,
+    Callback = function(val)
+        LootState.ClickDelay = val
+    end
+})
+
+ClickSec:Toggle({
+    Title = "Auto Rebirth",
+    Desc = "Attempts rebirth periodically when available.",
+    Value = false,
+    Callback = function(state)
+        LootState.AutoRebirth = state
+    end
+})
+
+local UtilSec = MiscTab:Section({ Title = "Protection & Helper", Box = true, Opened = true })
+
+UtilSec:Toggle({
+    Title = "Anti-AFK Protection",
+    Desc = "Prevents idle kick during long farming sessions.",
+    Value = true,
+    Callback = function(state)
+        LootState.AntiAFK = state
+    end
+})
+
+UtilSec:Button({
+    Title = "Teleport to Spawn / Hall",
+    Callback = function()
+        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        local hall = workspace:FindFirstChild("Scene") and workspace.Scene:FindFirstChild("Hall")
+        if hrp and hall then
+            local target = hall:FindFirstChildWhichIsA("BasePart", true)
+            if target then
+                hrp.CFrame = target.CFrame + Vector3.new(0, 4, 0)
+            end
+        end
+        WindUI:Notify({
+            Title = "Kryvex",
+            Content = "Teleported to main hall area.",
+            Duration = 3
+        })
+    end
+})

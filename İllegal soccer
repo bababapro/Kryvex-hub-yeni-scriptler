@@ -1,0 +1,165 @@
+-- Kryvex Hub | Illegal Soccer (WindUI)
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local LocalPlayer = Players.LocalPlayer
+local env = getgenv()
+
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/ummarxfarooq/WindUI/refs/heads/main/dist/main.lua"))()
+
+local Window = WindUI:CreateWindow({
+    Title = "Kryvex - Illegal Soccer",
+    Icon = "goal",
+    Author = "Kryvex",
+    Folder = "KryvexIllegalSoccer",
+    Theme = "Crimson",
+    Size = UDim2.fromOffset(780, 520),
+    Transparent = true,
+    Resizable = true
+})
+
+local KryvexState = {
+    AutoChaseBall = false,
+    AutoSprint = false,
+    WalkSpeed = 24,
+    JumpPower = 55,
+    ChaseRadius = 150
+}
+
+local function getCharacterParts()
+    local char = LocalPlayer.Character
+    if not char then return nil, nil, nil end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    return char, hum, hrp
+end
+
+local function findSoccerBall()
+    local misc = Workspace:FindFirstChild("Misc")
+    local visuals = misc and misc:FindFirstChild("Visuals")
+    if visuals then
+        for _, obj in ipairs(visuals:GetChildren()) do
+            if obj.Name:match("^ClientBall_") then
+                if obj:IsA("BasePart") then return obj end
+                if obj:IsA("Model") then
+                    return obj.PrimaryPart or obj:FindFirstChild("Default") or obj:FindFirstChildWhichIsA("BasePart", true)
+                end
+            end
+        end
+    end
+    return nil
+end
+
+local function tryHookStamina()
+    pcall(function()
+        local sprintMod = require(ReplicatedStorage.Modules.Actions.Sprint)
+        if sprintMod and typeof(sprintMod.GetDrainAmount) == "function" and not env.KryvexStaminaHooked then
+            env.KryvexStaminaHooked = true
+            local oldDrain = sprintMod.GetDrainAmount
+            sprintMod.GetDrainAmount = function(...)
+                if KryvexState.AutoSprint then return 0 end
+                return oldDrain(...)
+            end
+        end
+    end)
+end
+
+tryHookStamina()
+
+RunService.Heartbeat:Connect(function()
+    local _, hum, hrp = getCharacterParts()
+    if not hum or not hrp then return end
+
+    if KryvexState.AutoSprint then
+        hum.WalkSpeed = KryvexState.WalkSpeed
+        hum.UseJumpPower = true
+        hum.JumpPower = KryvexState.JumpPower
+    end
+
+    if KryvexState.AutoChaseBall then
+        local ball = findSoccerBall()
+        if ball then
+            local dist = (ball.Position - hrp.Position).Magnitude
+            if dist <= KryvexState.ChaseRadius and dist > 3 then
+                hum:MoveTo(ball.Position)
+            end
+        end
+    end
+end)
+
+local MainTab = Window:Tab({ Title = "Main", Icon = "zap" })
+local PlayerTab = Window:Tab({ Title = "Player", Icon = "user" })
+
+local MatchSec = MainTab:Section({ Title = "Match Assist", Box = true, Opened = true })
+
+MatchSec:Toggle({
+    Title = "Auto Chase Ball",
+    Desc = "Automatically moves toward the active ball within range.",
+    Value = false,
+    Callback = function(state)
+        KryvexState.AutoChaseBall = state
+    end
+})
+
+MatchSec:Slider({
+    Title = "Chase Radius",
+    Value = { Min = 20, Max = 300, Default = 150 },
+    Step = 5,
+    Callback = function(val)
+        KryvexState.ChaseRadius = val
+    end
+})
+
+local MoveSec = PlayerTab:Section({ Title = "Movement & Stamina", Box = true, Opened = true })
+
+MoveSec:Toggle({
+    Title = "Infinite Stamina & Boost",
+    Desc = "Prevents sprint stamina drain and applies movement boost.",
+    Value = false,
+    Callback = function(state)
+        KryvexState.AutoSprint = state
+        local _, hum = getCharacterParts()
+        if hum and not state then
+            hum.WalkSpeed = 16
+            hum.JumpPower = 50
+        end
+    end
+})
+
+MoveSec:Slider({
+    Title = "Boost WalkSpeed",
+    Value = { Min = 16, Max = 80, Default = 24 },
+    Step = 1,
+    Callback = function(val)
+        KryvexState.WalkSpeed = val
+    end
+})
+
+MoveSec:Slider({
+    Title = "Boost JumpPower",
+    Value = { Min = 50, Max = 140, Default = 55 },
+    Step = 5,
+    Callback = function(val)
+        KryvexState.JumpPower = val
+    end
+})
+
+MoveSec:Button({
+    Title = "Reset Movement",
+    Callback = function()
+        KryvexState.AutoSprint = false
+        local _, hum = getCharacterParts()
+        if hum then
+            hum.WalkSpeed = 16
+            hum.JumpPower = 50
+        end
+        WindUI:Notify({
+            Title = "Kryvex",
+            Content = "Movement settings restored to default.",
+            Duration = 3
+        })
+    end
+})

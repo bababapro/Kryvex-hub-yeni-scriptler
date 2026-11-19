@@ -1,0 +1,130 @@
+-- Kryvex Hub | Murderers VS Sheriffs Duels (WindUI)
+
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/ummarxfarooq/WindUI/refs/heads/main/dist/main.lua"))()
+
+local Window = WindUI:CreateWindow({
+    Title = "Kryvex - Murderers VS Sheriffs",
+    Icon = "shield",
+    Author = "Kryvex",
+    Folder = "KryvexMvSDuels",
+    Theme = "Crimson",
+    Size = UDim2.fromOffset(780, 520),
+    Transparent = true,
+    Resizable = true
+})
+
+local DuelConfig = {
+    Enabled = true,
+    MaxDistance = 150,
+    FOVRadius = 180,
+    ShowFOV = true
+}
+
+local FOVRing = Drawing.new("Circle")
+FOVRing.Thickness = 1.5
+FOVRing.NumSides = 100
+FOVRing.Radius = DuelConfig.FOVRadius
+FOVRing.Color = Color3.fromRGB(239, 68, 68)
+FOVRing.Filled = false
+FOVRing.Visible = DuelConfig.Enabled and DuelConfig.ShowFOV
+
+RunService.RenderStepped:Connect(function()
+    local mouse = LocalPlayer:GetMouse()
+    FOVRing.Position = Vector2.new(mouse.X, mouse.Y)
+    FOVRing.Radius = DuelConfig.FOVRadius
+    FOVRing.Visible = DuelConfig.Enabled and DuelConfig.ShowFOV
+end)
+
+local function getClosestDuelTarget()
+    if not DuelConfig.Enabled or not LocalPlayer:GetAttribute("Map") then
+        return nil
+    end
+
+    local myChar = LocalPlayer.Character
+    local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return nil end
+
+    local mouse = LocalPlayer:GetMouse()
+    local mousePos = Vector2.new(mouse.X, mouse.Y)
+    local myTeam = LocalPlayer:GetAttribute("Team")
+    local myGame = LocalPlayer:GetAttribute("Game")
+
+    local closestPart = nil
+    local shortestDist = DuelConfig.FOVRadius
+
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character then
+            local root = plr.Character:FindFirstChild("HumanoidRootPart")
+            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+            if root and hum and hum.Health > 0
+                and plr:GetAttribute("Game") == myGame
+                and plr:GetAttribute("Team") ~= myTeam then
+
+                local worldDist = (root.Position - myRoot.Position).Magnitude
+                if worldDist <= DuelConfig.MaxDistance then
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(root.Position)
+                    if onScreen then
+                        local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+                        if screenDist < shortestDist then
+                            shortestDist = screenDist
+                            closestPart = root
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return closestPart
+end
+
+if typeof(hookmetamethod) == "function" and typeof(newcclosure) == "function" then
+    local oldIndex
+    oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, key)
+        if not checkcaller() and self == LocalPlayer:GetMouse() and key == "Hit" then
+            local targetRoot = getClosestDuelTarget()
+            if targetRoot then
+                return CFrame.new(targetRoot.Position)
+            end
+        end
+        return oldIndex(self, key)
+    end))
+end
+
+local MainTab = Window:Tab({ Title = "Silent Aim", Icon = "crosshair" })
+local AimSec = MainTab:Section({ Title = "Duel Targeting", Box = true, Opened = true })
+
+AimSec:Toggle({
+    Title = "Enable Silent Aim",
+    Desc = "Redirects mouse hit toward enemies in your active duel match.",
+    Value = true,
+    Callback = function(v) DuelConfig.Enabled = v end
+})
+
+AimSec:Toggle({
+    Title = "Show FOV Circle",
+    Desc = "Displays targeting radius around cursor.",
+    Value = true,
+    Callback = function(v) DuelConfig.ShowFOV = v end
+})
+
+AimSec:Slider({
+    Title = "Max World Distance",
+    Value = { Min = 30, Max = 400, Default = 150 },
+    Step = 5,
+    Callback = function(v) DuelConfig.MaxDistance = v end
+})
+
+AimSec:Slider({
+    Title = "FOV Radius",
+    Value = { Min = 30, Max = 500, Default = 180 },
+    Step = 10,
+    Callback = function(v) DuelConfig.FOVRadius = v end
+})

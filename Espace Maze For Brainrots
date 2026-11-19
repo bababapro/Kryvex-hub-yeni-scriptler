@@ -1,0 +1,138 @@
+-- Kryvex Hub | Escape Maze For Brainrots! (WindUI)
+
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/ummarxfarooq/WindUI/refs/heads/main/dist/main.lua"))()
+
+local Window = WindUI:CreateWindow({
+    Title = "Kryvex - Escape Maze",
+    Icon = "sparkles",
+    Author = "Kryvex",
+    Folder = "KryvexEscapeMaze",
+    Theme = "Crimson",
+    Size = UDim2.fromOffset(780, 520),
+    Transparent = true,
+    Resizable = true
+})
+
+local MazeState = {
+    InstantCollect = false,
+    AutoMoneyCollect = false,
+    SafePosition = Vector3.new(-285, 51, -50)
+}
+
+local function getRoot(char)
+    if not char then return nil end
+    return char:FindFirstChild("HumanoidRootPart")
+        or char:FindFirstChild("Torso")
+        or char:FindFirstChild("UpperTorso")
+end
+
+local function getPlayerPlot()
+    local plots = Workspace:FindFirstChild("Plots") or (Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("Plots"))
+    if not plots then return nil end
+
+    for _, plot in ipairs(plots:GetChildren()) do
+        local owner = plot:FindFirstChild("Owner") or plot:GetAttribute("Owner")
+        if owner then
+            if typeof(owner) == "Instance" and owner:IsA("ObjectValue") and owner.Value == LocalPlayer then
+                return plot
+            elseif tostring(owner) == LocalPlayer.Name or tostring(owner) == tostring(LocalPlayer.UserId) then
+                return plot
+            end
+        end
+    end
+    return nil
+end
+
+local function setupPrompt(prompt)
+    if not prompt:IsA("ProximityPrompt") then return end
+
+    if MazeState.InstantCollect then
+        prompt.HoldDuration = 0
+    end
+
+    prompt.PromptShown:Connect(function()
+        if MazeState.InstantCollect and typeof(fireprompt) == "function" then
+            pcall(fireprompt, prompt)
+        end
+    end)
+
+    prompt.Triggered:Connect(function(plr)
+        if plr == LocalPlayer and MazeState.InstantCollect and plr.Character then
+            plr.Character:MoveTo(MazeState.SafePosition)
+        end
+    end)
+end
+
+local itemSpawners = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("ItemSpawners")
+if itemSpawners then
+    for _, desc in ipairs(itemSpawners:GetDescendants()) do
+        setupPrompt(desc)
+    end
+    itemSpawners.DescendantAdded:Connect(setupPrompt)
+end
+
+task.spawn(function()
+    while task.wait(0.25) do
+        if MazeState.AutoMoneyCollect then
+            local plot = getPlayerPlot()
+            local root = getRoot(LocalPlayer.Character)
+            if plot and root and typeof(firetouchinterest) == "function" then
+                for _, desc in ipairs(plot:GetDescendants()) do
+                    if desc:IsA("TouchTransmitter") and desc.Parent then
+                        pcall(function()
+                            firetouchinterest(desc.Parent, root, 0)
+                            task.wait(0.01)
+                            firetouchinterest(desc.Parent, root, 1)
+                        end)
+                    end
+                end
+            end
+        end
+    end
+end)
+
+local MazeTab = Window:Tab({ Title = "Maze Farm", Icon = "zap" })
+local MazeSec = MazeTab:Section({ Title = "Collect & Escape", Box = true, Opened = true })
+
+MazeSec:Toggle({
+    Title = "Instant Collect",
+    Desc = "Removes prompt hold duration and returns to safe area on collect.",
+    Value = false,
+    Callback = function(bool)
+        MazeState.InstantCollect = bool
+        if itemSpawners then
+            for _, desc in ipairs(itemSpawners:GetDescendants()) do
+                if desc:IsA("ProximityPrompt") then
+                    desc.HoldDuration = bool and 0 or 1
+                end
+            end
+        end
+    end
+})
+
+MazeSec:Toggle({
+    Title = "Auto Collect Money",
+    Desc = "Automatically claims cash touch transmitters in your plot.",
+    Value = false,
+    Callback = function(bool)
+        MazeState.AutoMoneyCollect = bool
+    end
+})
+
+MazeSec:Button({
+    Title = "Teleport to Safe Zone",
+    Callback = function()
+        if LocalPlayer.Character then
+            LocalPlayer.Character:MoveTo(MazeState.SafePosition)
+            WindUI:Notify({
+                Title = "Kryvex Escape Maze",
+                Content = "Moved to safe position.",
+                Duration = 3
+            })
+        end
+    end
+})

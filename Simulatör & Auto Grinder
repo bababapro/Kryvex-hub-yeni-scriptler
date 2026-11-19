@@ -1,0 +1,111 @@
+-- Kryvex Hub | Simulator & Auto Grinder (WindUI)
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualUser = game:GetService("VirtualUser")
+
+local LocalPlayer = Players.LocalPlayer
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/ummarxfarooq/WindUI/refs/heads/main/dist/main.lua"))()
+
+local Window = WindUI:CreateWindow({
+    Title = "Kryvex - Simulator",
+    Icon = "sparkles",
+    Author = "Kryvex",
+    Folder = "KryvexSimulator",
+    Theme = "Crimson",
+    Size = UDim2.fromOffset(780, 520),
+    Transparent = true,
+    Resizable = true
+})
+
+local SimState = {
+    AutoTrain = false,
+    AutoRebirth = false,
+    AntiAFK = true,
+    TrainDelay = 0.12
+}
+
+LocalPlayer.Idled:Connect(function()
+    if SimState.AntiAFK then
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
+    end
+end)
+
+task.spawn(function()
+    while true do
+        if SimState.AutoTrain then
+            pcall(function()
+                local char = LocalPlayer.Character
+                local tool = char and char:FindFirstChildOfClass("Tool")
+                if tool then
+                    tool:Activate()
+                end
+                for _, rem in ipairs(ReplicatedStorage:GetDescendants()) do
+                    if rem:IsA("RemoteEvent") and rem.Name:lower():match("click") or rem.Name:lower():match("swing") or rem.Name:lower():match("train") then
+                        rem:FireServer()
+                    end
+                end
+            end)
+        end
+        task.wait(SimState.TrainDelay)
+    end
+end)
+
+task.spawn(function()
+    while true do
+        if SimState.AutoRebirth then
+            pcall(function()
+                for _, rem in ipairs(ReplicatedStorage:GetDescendants()) do
+                    if rem:IsA("RemoteEvent") and rem.Name:lower():match("rebirth") then
+                        rem:FireServer()
+                    end
+                end
+            end)
+        end
+        task.wait(4)
+    end
+end)
+
+local GrindTab = Window:Tab({ Title = "Grind", Icon = "activity" })
+local ConfigTab = Window:Tab({ Title = "Settings", Icon = "sliders" })
+
+local GrindSec = GrindTab:Section({ Title = "Auto Training", Box = true, Opened = true })
+
+GrindSec:Toggle({
+    Title = "Auto Train / Swing",
+    Desc = "Activates equipped tools and training remotes automatically.",
+    Value = false,
+    Callback = function(state)
+        SimState.AutoTrain = state
+    end
+})
+
+GrindSec:Slider({
+    Title = "Action Delay (Seconds)",
+    Value = { Min = 0.05, Max = 1, Default = 0.12 },
+    Step = 0.01,
+    Callback = function(val)
+        SimState.TrainDelay = val
+    end
+})
+
+GrindSec:Toggle({
+    Title = "Auto Rebirth",
+    Desc = "Attempts rebirth periodically.",
+    Value = false,
+    Callback = function(state)
+        SimState.AutoRebirth = state
+    end
+})
+
+local CfgSec = ConfigTab:Section({ Title = "Session", Box = true, Opened = true })
+
+CfgSec:Toggle({
+    Title = "Anti-AFK",
+    Desc = "Prevents 20-minute idle kick.",
+    Value = true,
+    Callback = function(state)
+        SimState.AntiAFK = state
+    end
+})

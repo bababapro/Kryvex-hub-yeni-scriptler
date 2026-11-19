@@ -1,0 +1,144 @@
+-- Kryvex Hub | Universal Combat & Visuals (WindUI)
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/ummarxfarooq/WindUI/refs/heads/main/dist/main.lua"))()
+
+local Window = WindUI:CreateWindow({
+    Title = "Kryvex - Universal",
+    Icon = "eye",
+    Author = "Kryvex",
+    Folder = "KryvexUniversal",
+    Theme = "Crimson",
+    Size = UDim2.fromOffset(780, 520),
+    Transparent = true,
+    Resizable = true
+})
+
+local UniState = {
+    ESP = false,
+    Noclip = false,
+    WalkSpeed = 16,
+    JumpPower = 50
+}
+
+local function clearESP()
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr.Character then
+            local hl = plr.Character:FindFirstChild("KryvexESP")
+            if hl then hl:Destroy() end
+        end
+    end
+end
+
+local function updateESP()
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character then
+            local existing = plr.Character:FindFirstChild("KryvexESP")
+            if UniState.ESP then
+                if not existing then
+                    local hl = Instance.new("Highlight")
+                    hl.Name = "KryvexESP"
+                    hl.FillColor = Color3.fromRGB(220, 38, 38)
+                    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    hl.FillTransparency = 0.5
+                    hl.OutlineTransparency = 0
+                    hl.Adornee = plr.Character
+                    hl.Parent = plr.Character
+                end
+            elseif existing then
+                existing:Destroy()
+            end
+        end
+    end
+end
+
+RunService.Heartbeat:Connect(function()
+    local char = LocalPlayer.Character
+    if not char then return end
+
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum.WalkSpeed = UniState.WalkSpeed
+        hum.UseJumpPower = true
+        hum.JumpPower = UniState.JumpPower
+    end
+
+    if UniState.Noclip then
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end
+
+    if UniState.ESP then
+        updateESP()
+    end
+end)
+
+Players.PlayerRemoving:Connect(function()
+    if UniState.ESP then
+        task.defer(updateESP)
+    end
+end)
+
+local VisTab = Window:Tab({ Title = "Visuals", Icon = "eye" })
+local PlrTab = Window:Tab({ Title = "Player", Icon = "user" })
+
+local EspSec = VisTab:Section({ Title = "Player Highlights", Box = true, Opened = true })
+
+EspSec:Toggle({
+    Title = "Player ESP",
+    Desc = "Highlights all other players through walls.",
+    Value = false,
+    Callback = function(state)
+        UniState.ESP = state
+        if not state then
+            clearESP()
+        else
+            updateESP()
+        end
+    end
+})
+
+local MoveSec = PlrTab:Section({ Title = "Character Controls", Box = true, Opened = true })
+
+MoveSec:Toggle({
+    Title = "Noclip",
+    Desc = "Disable part collisions on your character.",
+    Value = false,
+    Callback = function(state)
+        UniState.Noclip = state
+    end
+})
+
+MoveSec:Slider({
+    Title = "WalkSpeed",
+    Value = { Min = 16, Max = 150, Default = 16 },
+    Step = 1,
+    Callback = function(val)
+        UniState.WalkSpeed = val
+    end
+})
+
+MoveSec:Slider({
+    Title = "JumpPower",
+    Value = { Min = 50, Max = 250, Default = 50 },
+    Step = 5,
+    Callback = function(val)
+        UniState.JumpPower = val
+    end
+})
+
+MoveSec:Button({
+    Title = "Reset Character",
+    Callback = function()
+        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if hum then
+            hum.Health = 0
+        end
+    end
+})

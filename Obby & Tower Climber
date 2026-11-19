@@ -1,0 +1,150 @@
+-- Kryvex Hub | Obby & Tower Climber (WindUI)
+
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/ummarxfarooq/WindUI/refs/heads/main/dist/main.lua"))()
+
+local Window = WindUI:CreateWindow({
+    Title = "Kryvex - Obby Climber",
+    Icon = "trending-up",
+    Author = "Kryvex",
+    Folder = "KryvexObbyClimber",
+    Theme = "Crimson",
+    Size = UDim2.fromOffset(780, 520),
+    Transparent = true,
+    Resizable = true
+})
+
+local ObbyState = {
+    InfiniteJump = false,
+    WalkSpeed = 16,
+    JumpPower = 50
+}
+
+local function findCheckpoints()
+    local list = {}
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and (
+            obj.Name:lower():match("stage") or
+            obj.Name:lower():match("checkpoint") or
+            obj.Name:lower():match("finish") or
+            obj.Name:lower():match("win")
+        ) then
+            table.insert(list, obj)
+        end
+    end
+    table.sort(list, function(a, b)
+        local na = tonumber(a.Name:match("%d+")) or 0
+        local nb = tonumber(b.Name:match("%d+")) or 0
+        if na == nb then
+            return a.Position.Y < b.Position.Y
+        end
+        return na < nb
+    end)
+    return list
+end
+
+UserInputService.JumpRequest:Connect(function()
+    if ObbyState.InfiniteJump then
+        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if hum then
+            hum:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end
+end)
+
+RunService.Stepped:Connect(function()
+    local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum.WalkSpeed = ObbyState.WalkSpeed
+        hum.UseJumpPower = true
+        hum.JumpPower = ObbyState.JumpPower
+    end
+end)
+
+local ObbyTab = Window:Tab({ Title = "Obby", Icon = "flag" })
+local PlayerTab = Window:Tab({ Title = "Player", Icon = "user" })
+
+local StageSec = ObbyTab:Section({ Title = "Stage & Finish", Box = true, Opened = true })
+
+StageSec:Button({
+    Title = "Teleport to Highest Stage / Finish",
+    Callback = function()
+        local stages = findCheckpoints()
+        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if #stages > 0 and hrp then
+            local topPart = stages[#stages]
+            hrp.CFrame = topPart.CFrame + Vector3.new(0, 4, 0)
+            WindUI:Notify({
+                Title = "Kryvex Obby",
+                Content = "Teleported to: " .. topPart.Name,
+                Duration = 3
+            })
+        else
+            WindUI:Notify({
+                Title = "Kryvex Obby",
+                Content = "No stage or finish part detected.",
+                Duration = 3
+            })
+        end
+    end
+})
+
+StageSec:Button({
+    Title = "Teleport to Next Stage",
+    Callback = function()
+        local stages = findCheckpoints()
+        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if #stages > 0 and hrp then
+            for _, part in ipairs(stages) do
+                if part.Position.Y > hrp.Position.Y + 2 then
+                    hrp.CFrame = part.CFrame + Vector3.new(0, 4, 0)
+                    WindUI:Notify({
+                        Title = "Kryvex Obby",
+                        Content = "Moved to: " .. part.Name,
+                        Duration = 3
+                    })
+                    return
+                end
+            end
+        end
+        WindUI:Notify({
+            Title = "Kryvex Obby",
+            Content = "No higher stage ahead.",
+            Duration = 3
+        })
+    end
+})
+
+local MoveSec = PlayerTab:Section({ Title = "Mobility", Box = true, Opened = true })
+
+MoveSec:Toggle({
+    Title = "Infinite Jump",
+    Desc = "Allows jumping repeatedly in mid-air.",
+    Value = false,
+    Callback = function(state)
+        ObbyState.InfiniteJump = state
+    end
+})
+
+MoveSec:Slider({
+    Title = "WalkSpeed",
+    Value = { Min = 16, Max = 150, Default = 16 },
+    Step = 1,
+    Callback = function(val)
+        ObbyState.WalkSpeed = val
+    end
+})
+
+MoveSec:Slider({
+    Title = "JumpPower",
+    Value = { Min = 50, Max = 250, Default = 50 },
+    Step = 5,
+    Callback = function(val)
+        ObbyState.JumpPower = val
+    end
+})

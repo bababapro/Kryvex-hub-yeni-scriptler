@@ -1,0 +1,267 @@
+-- Kryvex Hub | RIVALS (WindUI)
+
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/ummarxfarooq/WindUI/refs/heads/main/dist/main.lua"))()
+
+local Window = WindUI:CreateWindow({
+    Title = "Kryvex - RIVALS",
+    Icon = "crosshair",
+    Author = "Kryvex",
+    Folder = "KryvexRivals",
+    Theme = "Crimson",
+    Size = UDim2.fromOffset(780, 520),
+    Transparent = true,
+    Resizable = true
+})
+
+local RivalsConfig = {
+    AimbotEnabled = true,
+    AimbotToggle = true,
+    AutoShoot = false,
+    HitPart = "HitboxHead",
+    FOVSize = 60,
+    ShowFOV = true,
+    TeamCheck = true,
+    WallCheck = true,
+    AliveCheck = true,
+    ESPEnabled = true,
+    ESPWallCheck = false
+}
+
+local mousePos = UserInputService:GetMouseLocation()
+local lock = false
+
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Thickness = 1.2
+FOVCircle.NumSides = 100
+FOVCircle.Radius = RivalsConfig.FOVSize
+FOVCircle.Color = Color3.fromRGB(255, 255, 255)
+FOVCircle.Filled = false
+FOVCircle.Visible = RivalsConfig.AimbotEnabled and RivalsConfig.ShowFOV
+FOVCircle.Position = mousePos
+
+local function isTeammate(plr)
+    if not RivalsConfig.TeamCheck then return false end
+    if plr.Team and LocalPlayer.Team and plr.Team == LocalPlayer.Team then
+        return true
+    end
+    local hrp = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+    if hrp and hrp:FindFirstChild("TeammateLabel") then
+        return true
+    end
+    return false
+end
+
+local function isVisible(targetPart)
+    if not RivalsConfig.WallCheck or not targetPart then return true end
+    local origin = Camera.CFrame.Position
+    local delta = targetPart.Position - origin
+    local ray = Ray.new(origin, delta.Unit * delta.Magnitude)
+    local hit = Workspace:FindPartOnRayWithIgnoreList(ray, { LocalPlayer.Character, Camera })
+    return hit ~= nil and hit:IsDescendantOf(targetPart.Parent)
+end
+
+local function getTargetInFOV()
+    local bestPlayer, bestDist = nil, RivalsConfig.FOVSize
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr == LocalPlayer or not plr.Character then continue end
+        if isTeammate(plr) then continue end
+
+        local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+        if RivalsConfig.AliveCheck and (not hum or hum.Health <= 0) then continue end
+
+        local part = plr.Character:FindFirstChild(RivalsConfig.HitPart)
+            or plr.Character:FindFirstChild("Head")
+            or plr.Character:FindFirstChild("HumanoidRootPart")
+        if not part then continue end
+
+        local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+        if not onScreen then continue end
+
+        local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+        if dist <= bestDist and isVisible(part) then
+            bestDist = dist
+            bestPlayer = plr
+        end
+    end
+    return bestPlayer
+end
+
+UserInputService.InputBegan:Connect(function(input, processed)
+    if processed then return end
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        if RivalsConfig.AimbotToggle then
+            lock = not lock
+        else
+            lock = true
+        end
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 and not RivalsConfig.AimbotToggle then
+        lock = false
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    mousePos = UserInputService:GetMouseLocation()
+    FOVCircle.Position = mousePos
+    FOVCircle.Radius = RivalsConfig.FOVSize
+    FOVCircle.Visible = RivalsConfig.AimbotEnabled and RivalsConfig.ShowFOV
+
+    local inLobby = false
+    pcall(function()
+        local lobbyCurrency = LocalPlayer.PlayerGui:FindFirstChild("MainGui")
+            and LocalPlayer.PlayerGui.MainGui:FindFirstChild("MainFrame")
+            and LocalPlayer.PlayerGui.MainGui.MainFrame:FindFirstChild("Lobby")
+            and LocalPlayer.PlayerGui.MainGui.MainFrame.Lobby:FindFirstChild("Currency")
+        inLobby = lobbyCurrency and lobbyCurrency.Visible or false
+    end)
+
+    if RivalsConfig.AimbotEnabled and not inLobby then
+        local target = getTargetInFOV()
+        local active = RivalsConfig.AimbotToggle and lock or UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
+
+        if target then
+            FOVCircle.Color = Color3.fromRGB(239, 68, 68)
+        elseif active then
+            FOVCircle.Color = Color3.fromRGB(255, 255, 255)
+        else
+            FOVCircle.Color = Color3.fromRGB(150, 150, 150)
+        end
+
+        if active and target and target.Character then
+            local part = target.Character:FindFirstChild(RivalsConfig.HitPart)
+                or target.Character:FindFirstChild("Head")
+                or target.Character:FindFirstChild("HumanoidRootPart")
+            if part then
+                local vp = Camera:WorldToViewportPoint(part.Position)
+                if vp.Z > 0 then
+                    Camera.CFrame = CFrame.new(
+                        Camera.CFrame.Position + (part.Position - Camera.CFrame.Position).Unit * 0.5,
+                        part.Position
+                    )
+                    if RivalsConfig.AutoShoot then
+                        local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+                        VirtualInputManager:SendMouseButtonEvent(center.X, center.Y, 0, true, game, 0)
+                        task.wait()
+                        VirtualInputManager:SendMouseButtonEvent(center.X, center.Y, 0, false, game, 0)
+                    end
+                end
+            end
+        end
+    end
+
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr == LocalPlayer or not plr.Character then continue end
+        local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+        local existing = plr.Character:FindFirstChild("KryvexESP")
+
+        local shouldShow = RivalsConfig.ESPEnabled
+            and not isTeammate(plr)
+            and (not RivalsConfig.AliveCheck or (hum and hum.Health > 0))
+
+        if shouldShow then
+            if not existing then
+                local hl = Instance.new("Highlight")
+                hl.Name = "KryvexESP"
+                hl.Adornee = plr.Character
+                hl.Parent = plr.Character
+                existing = hl
+            end
+            existing.Enabled = true
+            existing.FillColor = Color3.fromRGB(220, 38, 38)
+            existing.FillTransparency = 0.5
+            existing.OutlineColor = Color3.fromRGB(255, 255, 255)
+            existing.OutlineTransparency = 0
+            existing.DepthMode = RivalsConfig.ESPWallCheck and Enum.HighlightDepthMode.Occluded or Enum.HighlightDepthMode.AlwaysOnTop
+        elseif existing then
+            existing:Destroy()
+        end
+    end
+end)
+
+local AimTab = Window:Tab({ Title = "Aimbot", Icon = "crosshair" })
+local VisTab = Window:Tab({ Title = "Visuals", Icon = "eye" })
+
+local AimSec = AimTab:Section({ Title = "Targeting & FOV", Box = true, Opened = true })
+
+AimSec:Toggle({
+    Title = "Enable Aimbot",
+    Desc = "Locks camera toward valid enemies inside the FOV circle.",
+    Value = true,
+    Callback = function(v) RivalsConfig.AimbotEnabled = v end
+})
+
+AimSec:Toggle({
+    Title = "Right-Click Toggle Mode",
+    Desc = "Toggle lock on right-click instead of holding.",
+    Value = true,
+    Callback = function(v) RivalsConfig.AimbotToggle = v end
+})
+
+AimSec:Toggle({
+    Title = "Auto Fire on Lock",
+    Desc = "Automatically triggers primary attack when locked onto a target.",
+    Value = false,
+    Callback = function(v) RivalsConfig.AutoShoot = v end
+})
+
+AimSec:Toggle({
+    Title = "Show FOV Circle",
+    Desc = "Displays the aimbot targeting radius.",
+    Value = true,
+    Callback = function(v) RivalsConfig.ShowFOV = v end
+})
+
+AimSec:Toggle({
+    Title = "Team Check",
+    Desc = "Skips teammates.",
+    Value = true,
+    Callback = function(v) RivalsConfig.TeamCheck = v end
+})
+
+AimSec:Toggle({
+    Title = "Wall Check",
+    Desc = "Requires line of sight to target.",
+    Value = true,
+    Callback = function(v) RivalsConfig.WallCheck = v end
+})
+
+AimSec:Dropdown({
+    Title = "Target Part",
+    Values = { "HitboxHead", "Head", "UpperTorso", "HumanoidRootPart" },
+    Value = "HitboxHead",
+    Callback = function(v) RivalsConfig.HitPart = v end
+})
+
+AimSec:Slider({
+    Title = "FOV Radius",
+    Value = { Min = 20, Max = 400, Default = 60 },
+    Step = 5,
+    Callback = function(v) RivalsConfig.FOVSize = v end
+})
+
+local EspSec = VisTab:Section({ Title = "Player ESP", Box = true, Opened = true })
+
+EspSec:Toggle({
+    Title = "Highlight Enemies",
+    Desc = "Highlights enemy players in red.",
+    Value = true,
+    Callback = function(v) RivalsConfig.ESPEnabled = v end
+})
+
+EspSec:Toggle({
+    Title = "ESP Wall Check",
+    Desc = "Occludes highlight behind walls when enabled.",
+    Value = false,
+    Callback = function(v) RivalsConfig.ESPWallCheck = v end
+})

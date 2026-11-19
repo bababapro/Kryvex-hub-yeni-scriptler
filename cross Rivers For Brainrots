@@ -1,0 +1,212 @@
+-- Kryvex Hub | Cross Rivers for Brainrots! (WindUI)
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/ummarxfarooq/WindUI/refs/heads/main/dist/main.lua"))()
+
+local Window = WindUI:CreateWindow({
+    Title = "Kryvex - Cross Rivers",
+    Icon = "waves",
+    Author = "Kryvex",
+    Folder = "KryvexCrossRivers",
+    Theme = "Emerald",
+    Size = UDim2.fromOffset(780, 520),
+    Transparent = true,
+    Resizable = true
+})
+
+local RiverState = {
+    Farming = false,
+    Upgrade = false,
+    Collect = false,
+    WalkSpeed = 16,
+    JumpPower = 50
+}
+
+local function getPlayerPlot()
+    local plots = Workspace:FindFirstChild("MainGame") and Workspace.MainGame:FindFirstChild("Plots")
+    if not plots then return nil end
+    for _, plot in ipairs(plots:GetChildren()) do
+        local nameTxt = plot:FindFirstChild("PlotOwner")
+            and plot.PlotOwner:FindFirstChild("UIPart")
+            and plot.PlotOwner.UIPart:FindFirstChild("SGUI_Name")
+            and plot.PlotOwner.UIPart.SGUI_Name:FindFirstChild("Frame")
+            and plot.PlotOwner.UIPart.SGUI_Name.Frame:FindFirstChild("NameTxt")
+        if nameTxt and tostring(nameTxt.Text):find(LocalPlayer.Name) then
+            return plot
+        end
+    end
+    return nil
+end
+
+local function collectPlotPadsOnce()
+    local plot = getPlayerPlot()
+    local head = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head")
+    if not plot or not head or typeof(firetouchinterest) ~= "function" then return end
+    local pads = plot:FindFirstChild("Pads")
+    if not pads then return end
+    for _, pad in ipairs(pads:GetChildren()) do
+        local collectPart = pad:FindFirstChild("CollectPart")
+        if collectPart then
+            firetouchinterest(head, collectPart, 0)
+            task.wait()
+            firetouchinterest(head, collectPart, 1)
+        end
+    end
+end
+
+task.spawn(function()
+    while true do
+        if RiverState.Farming then
+            pcall(function()
+                local brainrotsFolder = Workspace:FindFirstChild("SpawnedBrainrots")
+                local crossWall = Workspace:FindFirstChild("MainGame")
+                    and Workspace.MainGame:FindFirstChild("Map")
+                    and Workspace.MainGame.Map:FindFirstChild("Model")
+                    and Workspace.MainGame.Map.Model:FindFirstChild("CrossWall")
+
+                if brainrotsFolder and crossWall and LocalPlayer.Character then
+                    for _, item in ipairs(brainrotsFolder:GetChildren()) do
+                        if not RiverState.Farming then break end
+                        if item:GetAttribute("_ZoneIndex") == 10 and item.PrimaryPart then
+                            local prompt = item.PrimaryPart:FindFirstChildOfClass("ProximityPrompt")
+                            if prompt then
+                                LocalPlayer.Character:MoveTo(item.PrimaryPart.Position)
+                                repeat
+                                    if typeof(fireproximityprompt) == "function" then
+                                        fireproximityprompt(prompt)
+                                    end
+                                    task.wait()
+                                until not prompt or prompt.Parent ~= item.PrimaryPart or not prompt.Enabled or not RiverState.Farming
+
+                                task.wait(0.4)
+                                local head = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Head")
+                                if head and typeof(firetouchinterest) == "function" then
+                                    firetouchinterest(head, crossWall, 0)
+                                    task.wait()
+                                    firetouchinterest(head, crossWall, 1)
+                                end
+                                task.wait(0.4)
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+        task.wait(1)
+    end
+end)
+
+task.spawn(function()
+    while true do
+        if RiverState.Upgrade then
+            pcall(function()
+                local rf = ReplicatedStorage:FindFirstChild("Packages")
+                    and ReplicatedStorage.Packages:FindFirstChild("Knit")
+                    and ReplicatedStorage.Packages.Knit:FindFirstChild("Services")
+                    and ReplicatedStorage.Packages.Knit.Services:FindFirstChild("PadService")
+                    and ReplicatedStorage.Packages.Knit.Services.PadService:FindFirstChild("RF")
+                    and ReplicatedStorage.Packages.Knit.Services.PadService.RF:FindFirstChild("UpgradePad")
+                if rf then
+                    for i = 1, 30 do
+                        if not RiverState.Upgrade then break end
+                        rf:InvokeServer(tostring(i))
+                    end
+                end
+            end)
+        end
+        task.wait(0.2)
+    end
+end)
+
+task.spawn(function()
+    while true do
+        if RiverState.Collect then
+            pcall(collectPlotPadsOnce)
+        end
+        task.wait(0.25)
+    end
+end)
+
+local MainTab = Window:Tab({ Title = "Main", Icon = "bot" })
+local PlayerTab = Window:Tab({ Title = "Player", Icon = "user" })
+
+local AutoSec = MainTab:Section({ Title = "Automation", Box = true, Opened = true })
+
+AutoSec:Toggle({
+    Title = "Farm Brainrots",
+    Desc = "Collects zone 10 brainrots and crosses the wall automatically.",
+    Value = false,
+    Callback = function(state)
+        RiverState.Farming = state
+    end
+})
+
+AutoSec:Toggle({
+    Title = "Auto Upgrade Pads",
+    Desc = "Automatically upgrades plot pads from 1 to 30.",
+    Value = false,
+    Callback = function(state)
+        RiverState.Upgrade = state
+    end
+})
+
+AutoSec:Toggle({
+    Title = "Auto Collect Cash",
+    Desc = "Collects currency from your plot pads continuously.",
+    Value = false,
+    Callback = function(state)
+        RiverState.Collect = state
+    end
+})
+
+local MoveSec = PlayerTab:Section({ Title = "Movement & Plot", Box = true, Opened = true })
+
+MoveSec:Slider({
+    Title = "WalkSpeed",
+    Value = { Min = 16, Max = 250, Default = 16 },
+    Step = 1,
+    Callback = function(val)
+        RiverState.WalkSpeed = val
+        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if hum then hum.WalkSpeed = val end
+    end
+})
+
+MoveSec:Slider({
+    Title = "JumpPower",
+    Value = { Min = 50, Max = 300, Default = 50 },
+    Step = 5,
+    Callback = function(val)
+        RiverState.JumpPower = val
+        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if hum then
+            hum.UseJumpPower = true
+            hum.JumpPower = val
+        end
+    end
+})
+
+MoveSec:Button({
+    Title = "Teleport to My Plot",
+    Callback = function()
+        local plot = getPlayerPlot()
+        if plot and plot.PrimaryPart and LocalPlayer.Character then
+            LocalPlayer.Character:MoveTo(plot.PrimaryPart.Position)
+            WindUI:Notify({
+                Title = "Kryvex",
+                Content = "Teleported to your plot.",
+                Duration = 3
+            })
+        else
+            WindUI:Notify({
+                Title = "Kryvex",
+                Content = "Plot not found yet.",
+                Duration = 3
+            })
+        end
+    end
+})

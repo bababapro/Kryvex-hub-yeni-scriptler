@@ -1,0 +1,354 @@
+-- Kryvex Hub | Steal a Sanrio (WindUI)
+
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ProximityPromptService = game:GetService("ProximityPromptService")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local VirtualUser = game:GetService("VirtualUser")
+
+local LocalPlayer = Players.LocalPlayer
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/ummarxfarooq/WindUI/refs/heads/main/dist/main.lua"))()
+
+local Window = WindUI:CreateWindow({
+    Title = "Kryvex - Steal a Sanrio",
+    Icon = "crown",
+    Author = "Kryvex",
+    Folder = "KryvexStealSanrio",
+    Theme = "Crimson",
+    Size = UDim2.fromOffset(780, 520),
+    Transparent = true,
+    Resizable = true
+})
+
+local SanrioState = {
+    AutoLock = false,
+    AutoCollect = false,
+    InfSpin = false,
+    ESP = false,
+    Noclip = false,
+    Fly = false,
+    InfJump = false,
+    AntiAFK = true
+}
+
+local function getOwnBase()
+    local bases = Workspace:FindFirstChild("Bases")
+    if not bases then return nil end
+    for _, base in ipairs(bases:GetChildren()) do
+        local owner = base:FindFirstChild("OwnerName")
+        if owner and owner.Value == LocalPlayer.Name then
+            return base
+        end
+    end
+    return nil
+end
+
+local function executeFinishSteal()
+    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    local hrp = char:WaitForChild("HumanoidRootPart")
+
+    local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+    local overlay = Instance.new("ScreenGui")
+    overlay.Name = "KryvexFinishOverlay"
+    overlay.IgnoreGuiInset = true
+    overlay.ResetOnSpawn = false
+    overlay.Parent = playerGui
+
+    local bg = Instance.new("Frame")
+    bg.Size = UDim2.fromScale(1, 1)
+    bg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    bg.BorderSizePixel = 0
+    bg.Parent = overlay
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.fromScale(1, 1)
+    label.BackgroundTransparency = 1
+    label.Text = "Finishing Steal..."
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.Font = Enum.Font.GothamBold
+    label.TextScaled = true
+    label.Parent = bg
+
+    local ownBase = getOwnBase()
+    if ownBase then
+        local spawnPart = ownBase:FindFirstChild("Spawn")
+        if spawnPart then
+            hrp.CFrame = spawnPart.CFrame + Vector3.new(0, 5, 0)
+        end
+        task.wait(math.random(1, 2))
+        local claimZone = ownBase:FindFirstChild("ClaimZone")
+        if claimZone then
+            hrp.CFrame = claimZone.CFrame + Vector3.new(0, 5, 0)
+        end
+    else
+        hrp.CFrame = CFrame.new(185.8063, 66.5858, 145.4864)
+    end
+
+    task.wait(1)
+    overlay:Destroy()
+end
+
+-- Mini floating Finish Steal GUI
+local finishGui = Instance.new("ScreenGui")
+finishGui.Name = "KryvexFinishStealGui"
+finishGui.Enabled = false
+finishGui.ResetOnSpawn = false
+finishGui.Parent = CoreGui
+
+local finishFrame = Instance.new("Frame")
+finishFrame.Size = UDim2.fromOffset(250, 120)
+finishFrame.Position = UDim2.new(1, -270, 0, 24)
+finishFrame.BackgroundColor3 = Color3.fromRGB(24, 24, 28)
+finishFrame.Active = true
+finishFrame.Draggable = true
+finishFrame.Parent = finishGui
+Instance.new("UICorner", finishFrame).CornerRadius = UDim.new(0, 8)
+
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.fromOffset(24, 24)
+closeBtn.Position = UDim2.new(1, -28, 0, 6)
+closeBtn.Text = "X"
+closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.BackgroundColor3 = Color3.fromRGB(220, 38, 38)
+closeBtn.Parent = finishFrame
+
+local finishBtn = Instance.new("TextButton")
+finishBtn.Size = UDim2.new(1, -20, 0, 42)
+finishBtn.Position = UDim2.new(0, 10, 0, 64)
+finishBtn.Text = "Finish Steal"
+finishBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+finishBtn.BackgroundColor3 = Color3.fromRGB(220, 38, 38)
+finishBtn.Font = Enum.Font.GothamBold
+finishBtn.TextSize = 15
+finishBtn.Parent = finishFrame
+Instance.new("UICorner", finishBtn).CornerRadius = UDim.new(0, 6)
+
+closeBtn.MouseButton1Click:Connect(function() finishGui.Enabled = false end)
+finishBtn.MouseButton1Click:Connect(executeFinishSteal)
+
+-- Loops
+task.spawn(function()
+    while true do
+        if SanrioState.AutoLock then
+            local base = getOwnBase()
+            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local btn = base and base:FindFirstChild("Laser_Button")
+            if hrp and btn and typeof(firetouchinterest) == "function" then
+                pcall(function()
+                    firetouchinterest(hrp, btn, 0)
+                    task.wait(0.1)
+                    firetouchinterest(hrp, btn, 1)
+                end)
+            end
+        end
+        task.wait(0.2)
+    end
+end)
+
+task.spawn(function()
+    while true do
+        if SanrioState.AutoCollect then
+            local base = getOwnBase()
+            local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if base and hrp and base:FindFirstChild("StoredModels") and typeof(firetouchinterest) == "function" then
+                for i = 1, 25 do
+                    local storage = base.StoredModels:FindFirstChild("Storage_" .. i)
+                    local genPart = storage and storage:FindFirstChild("Generate") and storage.Generate:FindFirstChild("GeneratorPart")
+                    if genPart then
+                        pcall(function()
+                            firetouchinterest(hrp, genPart, 0)
+                            task.wait(0.05)
+                            firetouchinterest(hrp, genPart, 1)
+                        end)
+                    end
+                end
+            end
+        end
+        task.wait(2)
+    end
+end)
+
+task.spawn(function()
+    while true do
+        if SanrioState.InfSpin then
+            local spinRemote = ReplicatedStorage:FindFirstChild("Free_Spin")
+            if spinRemote then
+                pcall(function() spinRemote:FireServer() end)
+            end
+        end
+        task.wait(0.05)
+    end
+end)
+
+if typeof(fireproximityprompt) == "function" then
+    ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt)
+        if prompt.HoldDuration > 0 then
+            prompt.HoldDuration = 0
+        end
+        pcall(fireproximityprompt, prompt)
+    end)
+end
+
+-- ESP & Movement
+local espObjects = {}
+local function setSanrioESP(enabled)
+    for _, obj in pairs(espObjects) do
+        if obj and obj.Parent then obj:Destroy() end
+    end
+    table.clear(espObjects)
+
+    if not enabled then return end
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local hl = Instance.new("Highlight")
+            hl.FillColor = Color3.fromRGB(220, 38, 38)
+            hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+            hl.Adornee = plr.Character
+            hl.Parent = CoreGui
+            table.insert(espObjects, hl)
+
+            local head = plr.Character:FindFirstChild("Head")
+            if head then
+                local bb = Instance.new("BillboardGui")
+                bb.Adornee = head
+                bb.Size = UDim2.fromOffset(110, 28)
+                bb.StudsOffset = Vector3.new(0, 2.2, 0)
+                bb.AlwaysOnTop = true
+                bb.Parent = CoreGui
+
+                local txt = Instance.new("TextLabel")
+                txt.Size = UDim2.fromScale(1, 1)
+                txt.BackgroundTransparency = 1
+                txt.Text = plr.Name
+                txt.TextColor3 = Color3.fromRGB(255, 80, 80)
+                txt.Font = Enum.Font.GothamBold
+                txt.TextScaled = true
+                txt.Parent = bb
+                table.insert(espObjects, bb)
+            end
+        end
+    end
+end
+
+local flyGyro, flyVel
+local function setFly(enabled)
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not char or not hrp or not hum then return end
+
+    if flyGyro then flyGyro:Destroy() flyGyro = nil end
+    if flyVel then flyVel:Destroy() flyVel = nil end
+
+    if enabled then
+        hum.PlatformStand = true
+        flyGyro = Instance.new("BodyGyro")
+        flyGyro.P = 90000
+        flyGyro.MaxTorque = Vector3.new(90000, 90000, 90000)
+        flyGyro.CFrame = hrp.CFrame
+        flyGyro.Parent = hrp
+
+        flyVel = Instance.new("BodyVelocity")
+        flyVel.MaxForce = Vector3.new(90000, 90000, 90000)
+        flyVel.Velocity = Vector3.zero
+        flyVel.Parent = hrp
+    else
+        hum.PlatformStand = false
+    end
+end
+
+RunService.Heartbeat:Connect(function()
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+
+    if SanrioState.Noclip and char then
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end
+
+    if SanrioState.Fly and hrp and flyGyro and flyVel then
+        local camCF = Workspace.CurrentCamera.CFrame
+        local moveDir = Vector3.zero
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir += camCF.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir -= camCF.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir -= camCF.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir += camCF.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir += Vector3.yAxis end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then moveDir -= Vector3.yAxis end
+
+        flyVel.Velocity = moveDir.Magnitude > 0 and (moveDir.Unit * 120) or Vector3.zero
+        flyGyro.CFrame = camCF
+    end
+end)
+
+UserInputService.JumpRequest:Connect(function()
+    if SanrioState.InfJump then
+        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+    end
+end)
+
+LocalPlayer.Idled:Connect(function()
+    if SanrioState.AntiAFK then
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
+    end
+end)
+
+local function tpTo(pos)
+    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if hrp then hrp.CFrame = CFrame.new(pos) end
+end
+
+local MainTab = Window:Tab({ Title = "Main", Icon = "home" })
+local StealTab = Window:Tab({ Title = "Steal", Icon = "lock-open" })
+local TpTab = Window:Tab({ Title = "Teleports", Icon = "map-pin" })
+local MoveTab = Window:Tab({ Title = "Movement", Icon = "rocket" })
+
+local BaseSec = MainTab:Section({ Title = "Base & Spins", Box = true, Opened = true })
+BaseSec:Toggle({ Title = "Auto Lock Base", Value = false, Callback = function(v) SanrioState.AutoLock = v end })
+BaseSec:Toggle({ Title = "Auto Collect", Value = false, Callback = function(v) SanrioState.AutoCollect = v end })
+BaseSec:Toggle({ Title = "Infinite Free Spins", Value = false, Callback = function(v) SanrioState.InfSpin = v end })
+BaseSec:Toggle({ Title = "Anti-AFK", Value = true, Callback = function(v) SanrioState.AntiAFK = v end })
+
+local StealSec = StealTab:Section({ Title = "Steal & ESP", Box = true, Opened = true })
+StealSec:Button({ Title = "Finish Steal Now", Callback = executeFinishSteal })
+StealSec:Button({ Title = "Open Finish Steal Floating GUI", Callback = function() finishGui.Enabled = true end })
+StealSec:Button({
+    Title = "Reset Character (Fix Slow)",
+    Callback = function()
+        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if hum then hum.Health = 0 end
+    end
+})
+StealSec:Toggle({
+    Title = "Player ESP",
+    Value = false,
+    Callback = function(v)
+        SanrioState.ESP = v
+        setSanrioESP(v)
+    end
+})
+
+local TpSec = TpTab:Section({ Title = "Locations", Box = true, Opened = true })
+TpSec:Button({ Title = "Teleport to Gear Shop", Callback = function() tpTo(Vector3.new(14.2545, 3.7248, -62.3701)) end })
+TpSec:Button({ Title = "Teleport to Merge Machine", Callback = function() tpTo(Vector3.new(17.4228, 3.4748, -0.0937)) end })
+TpSec:Button({ Title = "Teleport to Gacha Machine", Callback = function() tpTo(Vector3.new(-24.7160, 3.5740, -202.2658)) end })
+TpSec:Button({ Title = "Teleport to Spinny Wheel", Callback = function() tpTo(Vector3.new(13.1996, 2.9748, -114.9566)) end })
+
+local MoveSec = MoveTab:Section({ Title = "Mobility", Box = true, Opened = true })
+MoveSec:Toggle({ Title = "Noclip", Value = false, Callback = function(v) SanrioState.Noclip = v end })
+MoveSec:Toggle({
+    Title = "Fly",
+    Value = false,
+    Callback = function(v)
+        SanrioState.Fly = v
+        setFly(v)
+    end
+})
+MoveSec:Toggle({ Title = "Infinite Jump", Value = false, Callback = function(v) SanrioState.InfJump = v end })

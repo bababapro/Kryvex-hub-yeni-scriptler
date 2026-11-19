@@ -1,0 +1,91 @@
+-- Kryvex Hub | Street Life Remastered (WindUI)
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/ummarxfarooq/WindUI/refs/heads/main/dist/main.lua"))()
+
+local Window = WindUI:CreateWindow({
+    Title = "Kryvex - Street Life",
+    Icon = "map-pin",
+    Author = "Kryvex",
+    Folder = "KryvexStreetLife",
+    Theme = "Midnight",
+    Size = UDim2.fromOffset(780, 520),
+    Transparent = true,
+    Resizable = true
+})
+
+local StreetState = {
+    Noclip = false,
+    WalkSpeed = 16,
+    JumpPower = 50
+}
+
+RunService.Stepped:Connect(function()
+    local char = LocalPlayer.Character
+    if not char then return end
+
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        hum.WalkSpeed = StreetState.WalkSpeed
+        hum.UseJumpPower = true
+        hum.JumpPower = StreetState.JumpPower
+    end
+
+    if StreetState.Noclip then
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end
+end)
+
+local StreetTab = Window:Tab({ Title = "Street", Icon = "shield" })
+local StreetSec = StreetTab:Section({ Title = "Character & Street", Box = true, Opened = true })
+
+StreetSec:Toggle({
+    Title = "Noclip",
+    Desc = "Walk through walls and street obstacles.",
+    Value = false,
+    Callback = function(state)
+        StreetState.Noclip = state
+    end
+})
+
+StreetSec:Slider({
+    Title = "WalkSpeed",
+    Value = { Min = 16, Max = 120, Default = 16 },
+    Step = 1,
+    Callback = function(val)
+        StreetState.WalkSpeed = val
+    end
+})
+
+StreetSec:Slider({
+    Title = "JumpPower",
+    Value = { Min = 50, Max = 200, Default = 50 },
+    Step = 5,
+    Callback = function(val)
+        StreetState.JumpPower = val
+    end
+})
+
+StreetSec:Button({
+    Title = "Teleport to SpawnLocation",
+    Callback = function()
+        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        local spawn = Workspace:FindFirstChildWhichIsA("SpawnLocation", true)
+        if hrp and spawn then
+            hrp.CFrame = spawn.CFrame + Vector3.new(0, 4, 0)
+            WindUI:Notify({
+                Title = "Kryvex Street Life",
+                Content = "Teleported to spawn.",
+                Duration = 3
+            })
+        end
+    end
+})

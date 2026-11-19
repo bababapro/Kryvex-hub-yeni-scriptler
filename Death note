@@ -1,0 +1,111 @@
+-- Kryvex Hub | Death Note (WindUI)
+
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/ummarxfarooq/WindUI/refs/heads/main/dist/main.lua"))()
+
+local Window = WindUI:CreateWindow({
+    Title = "Kryvex - Death Note",
+    Icon = "skull",
+    Author = "Kryvex",
+    Folder = "KryvexDeathNote",
+    Theme = "Crimson",
+    Size = UDim2.fromOffset(780, 520),
+    Transparent = true,
+    Resizable = true
+})
+
+local TargetName = ""
+
+local function eliminateTargetByName(nameQuery)
+    if not nameQuery or nameQuery == "" then return false end
+    local lower = nameQuery:lower()
+    for _, obj in ipairs(Workspace:GetChildren()) do
+        if obj:IsA("Model") and obj.Name:lower():find(lower, 1, true) then
+            local hum = obj:FindFirstChildOfClass("Humanoid")
+            if hum then
+                hum.PlatformStand = true
+                hum.Health = 0
+                return true
+            end
+        end
+    end
+    return false
+end
+
+local function giveDeathNoteTool()
+    local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+    if not backpack or backpack:FindFirstChild("Kryvex Death Note") then return end
+
+    local tool = Instance.new("Tool")
+    tool.Name = "Kryvex Death Note"
+    tool.RequiresHandle = true
+
+    local handle = Instance.new("Part")
+    handle.Name = "Handle"
+    handle.Size = Vector3.new(1, 1.4, 0.2)
+    handle.Color = Color3.fromRGB(20, 20, 20)
+    handle.Material = Enum.Material.SmoothPlastic
+    handle.Parent = tool
+
+    tool.Activated:Connect(function()
+        if TargetName ~= "" then
+            eliminateTargetByName(TargetName)
+        end
+    end)
+
+    tool.Parent = backpack
+end
+
+local NoteTab = Window:Tab({ Title = "Death Note", Icon = "book-open" })
+local ActionSec = NoteTab:Section({ Title = "Note Controls", Box = true, Opened = true })
+
+ActionSec:Input({
+    Title = "Target Name",
+    Placeholder = "Enter player or NPC name...",
+    Callback = function(text)
+        TargetName = text or ""
+    end
+})
+
+ActionSec:Button({
+    Title = "Eliminate Target",
+    Callback = function()
+        local ok = eliminateTargetByName(TargetName)
+        WindUI:Notify({
+            Title = "Kryvex Death Note",
+            Content = ok and ("Eliminated target matching: " .. TargetName) or "Target not found.",
+            Duration = 3
+        })
+    end
+})
+
+ActionSec:Button({
+    Title = "Give Death Note Tool",
+    Callback = function()
+        giveDeathNoteTool()
+        WindUI:Notify({
+            Title = "Kryvex Death Note",
+            Content = "Added Kryvex Death Note to your backpack.",
+            Duration = 3
+        })
+    end
+})
+
+ActionSec:Button({
+    Title = "Restore Self Health",
+    Callback = function()
+        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if hum then
+            hum.MaxHealth = math.max(hum.MaxHealth, 100)
+            hum.Health = hum.MaxHealth
+        end
+        WindUI:Notify({
+            Title = "Kryvex Death Note",
+            Content = "Health restored.",
+            Duration = 3
+        })
+    end
+})

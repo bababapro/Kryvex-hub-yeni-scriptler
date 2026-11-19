@@ -1,0 +1,160 @@
+-- Kryvex Hub | Jailbird (WindUI)
+
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/ummarxfarooq/WindUI/refs/heads/main/dist/main.lua"))()
+
+local Window = WindUI:CreateWindow({
+    Title = "Kryvex - Jailbird",
+    Icon = "crosshair",
+    Author = "Kryvex",
+    Folder = "KryvexJailbird",
+    Theme = "Violet",
+    Size = UDim2.fromOffset(780, 520),
+    Transparent = true,
+    Resizable = true
+})
+
+local AimConfig = {
+    Enabled = true,
+    TargetPart = "Head",
+    MaxFOV = 220,
+    TeamCheck = true,
+    DrawFOV = true
+}
+
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Thickness = 2
+FOVCircle.NumSides = 100
+FOVCircle.Radius = AimConfig.MaxFOV
+FOVCircle.Color = Color3.fromRGB(168, 85, 247)
+FOVCircle.Transparency = 0.75
+FOVCircle.Visible = AimConfig.DrawFOV
+FOVCircle.Filled = false
+
+RunService.RenderStepped:Connect(function()
+    FOVCircle.Position = UserInputService:GetMouseLocation()
+    FOVCircle.Radius = AimConfig.MaxFOV
+    FOVCircle.Visible = AimConfig.Enabled and AimConfig.DrawFOV
+end)
+
+local function getClosestTarget()
+    if not AimConfig.Enabled then return nil end
+    local mousePos = UserInputService:GetMouseLocation()
+    local closest, shortest = nil, AimConfig.MaxFOV
+
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr == LocalPlayer or not plr.Character then continue end
+        if AimConfig.TeamCheck and plr.Team == LocalPlayer.Team then continue end
+
+        local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+        if not hum or hum.Health <= 0 then continue end
+
+        local part = plr.Character:FindFirstChild(AimConfig.TargetPart)
+            or plr.Character:FindFirstChild("Head")
+            or plr.Character:FindFirstChild("HumanoidRootPart")
+        if not part then continue end
+
+        local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+        if not onScreen then continue end
+
+        local dist = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+        if dist < shortest then
+            shortest = dist
+            closest = part
+        end
+    end
+
+    return closest
+end
+
+local OldBulletRayCast, OldKnifeRayCast
+local function redirectRay(origin, direction, distance, ignoreList, isKnife)
+    local target = getClosestTarget()
+    local finalDir = target and (target.Position - origin).Unit or direction
+    if isKnife and OldKnifeRayCast then
+        return OldKnifeRayCast(origin, finalDir, distance, ignoreList)
+    elseif not isKnife and OldBulletRayCast then
+        return OldBulletRayCast(origin, finalDir, distance, ignoreList)
+    end
+end
+
+local function installHooks()
+    if typeof(getgc) ~= "function" then return false end
+    for _, tbl in ipairs(getgc(true)) do
+        if typeof(tbl) == "table" and rawget(tbl, "BulletRayCast") and rawget(tbl, "KnifeRayCast") then
+            if not OldBulletRayCast then
+                OldBulletRayCast = tbl.BulletRayCast
+                OldKnifeRayCast = tbl.KnifeRayCast
+                tbl.BulletRayCast = function(a, b, c, d)
+                    return redirectRay(a, b, c, d, false)
+                end
+                tbl.KnifeRayCast = function(a, b, c, d)
+                    return redirectRay(a, b, c, d, true)
+                end
+                return true
+            end
+        end
+    end
+    return false
+end
+
+task.spawn(function()
+    for _ = 1, 25 do
+        if installHooks() then break end
+        task.wait(0.6)
+    end
+end)
+
+local CombatTab = Window:Tab({ Title = "Combat", Icon = "target" })
+local AimSec = CombatTab:Section({ Title = "Silent Aim", Box = true, Opened = true })
+
+AimSec:Toggle({
+    Title = "Enable Silent Aim",
+    Desc = "Redirects bullet and knife raycasts toward targets inside FOV.",
+    Value = true,
+    Callback = function(state)
+        AimConfig.Enabled = state
+    end
+})
+
+AimSec:Toggle({
+    Title = "Team Check",
+    Desc = "Ignores teammates when selecting targets.",
+    Value = true,
+    Callback = function(state)
+        AimConfig.TeamCheck = state
+    end
+})
+
+AimSec:Toggle({
+    Title = "Draw FOV Circle",
+    Desc = "Displays the targeting radius circle around the cursor.",
+    Value = true,
+    Callback = function(state)
+        AimConfig.DrawFOV = state
+    end
+})
+
+AimSec:Dropdown({
+    Title = "Target Part",
+    Values = { "Head", "HumanoidRootPart" },
+    Value = "Head",
+    Callback = function(val)
+        AimConfig.TargetPart = val
+    end
+})
+
+AimSec:Slider({
+    Title = "FOV Radius",
+    Value = { Min = 30, Max = 600, Default = 220 },
+    Step = 10,
+    Callback = function(val)
+        AimConfig.MaxFOV = val
+    end
+})

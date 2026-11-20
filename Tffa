@@ -1,0 +1,736 @@
+-- [[ KRYVEX | TFFA - Güvenli Versiyon ]] --
+-- Rebranded by Kryvex
+
+-- ============================================================
+-- 1. GÜVENLİ UI YÜKLEME
+-- ============================================================
+local UI_URLS = {
+    "https://gist.githubusercontent.com/ssssssssss21/09b303c5a1cf601bda1370252c65712a/raw/d7c50c43db2b33c1f7516a10317ff642f77c89a6/UITest.luau",
+    "https://raw.githubusercontent.com/ssssssssss21/09b303c5a1cf601bda1370252c65712a/main/UITest.luau",
+}
+
+local module = nil
+local uiError = nil
+
+for _, url in ipairs(UI_URLS) do
+    local ok, result = pcall(function()
+        local src = game:HttpGet(url)
+        if not src or #src < 100 then error("Boş yanıt") end
+        local fn, err = loadstring(src)
+        if not fn then error("loadstring hatası: " .. tostring(err)) end
+        local mod = fn()
+        if type(mod) ~= "table" or not mod.CreateWindow then
+            error("UI modülü geçersiz (CreateWindow yok)")
+        end
+        return mod
+    end)
+    if ok then
+        module = result
+        break
+    else
+        uiError = tostring(result)
+        warn("[Kryvex] UI yüklenemedi: " .. uiError)
+    end
+end
+
+if not module then
+    -- Fallback: basit manuel UI
+    warn("[Kryvex] Tüm UI URL'leri başarısız. Basit UI oluşturuluyor...")
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "KryvexFallback"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.Parent = game:GetService("CoreGui")
+
+    local Frame = Instance.new("Frame")
+    Frame.Size = UDim2.new(0, 400, 0, 300)
+    Frame.Position = UDim2.new(0.5, -200, 0.5, -150)
+    Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 35)
+    Frame.BorderSizePixel = 0
+    Frame.Parent = ScreenGui
+
+    local Title = Instance.new("TextLabel")
+    Title.Size = UDim2.new(1, 0, 0, 40)
+    Title.BackgroundColor3 = Color3.fromRGB(138, 43, 226)
+    Title.Text = "Kryvex | TFFA (Fallback)"
+    Title.TextColor3 = Color3.new(1,1,1)
+    Title.Font = Enum.Font.GothamBold
+    Title.TextSize = 18
+    Title.Parent = Frame
+
+    local Info = Instance.new("TextLabel")
+    Info.Size = UDim2.new(1, -20, 1, -60)
+    Info.Position = UDim2.new(0, 10, 0, 50)
+    Info.BackgroundTransparency = 1
+    Info.TextColor3 = Color3.new(1,1,1)
+    Info.Font = Enum.Font.Gotham
+    Info.TextSize = 14
+    Info.TextWrapped = true
+    Info.Text = "UI yüklenemedi!\n\nHata: " .. tostring(uiError) .. "\n\nLütfen executor'ının HTTP isteklerine izin verdiğinden emin ol."
+    Info.Parent = Frame
+
+    local CloseBtn = Instance.new("TextButton")
+    CloseBtn.Size = UDim2.new(0, 80, 0, 30)
+    CloseBtn.Position = UDim2.new(1, -90, 1, -40)
+    CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    CloseBtn.Text = "Kapat"
+    CloseBtn.TextColor3 = Color3.new(1,1,1)
+    CloseBtn.Font = Enum.Font.GothamBold
+    CloseBtn.Parent = Frame
+    CloseBtn.MouseButton1Click:Connect(function()
+        ScreenGui:Destroy()
+    end)
+
+    return
+end
+
+-- ============================================================
+-- 2. SERVİSLER
+-- ============================================================
+local Players1 = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+local Lighting = game:GetService("Lighting")
+local LocalPlayer1 = Players1.LocalPlayer
+
+-- ============================================================
+-- 3. REMOTE'LAR (GÜVENLİ)
+-- ============================================================
+local function safeRemote(name, timeout)
+    local Remotes = ReplicatedStorage:FindFirstChild("Remotes")
+    if not Remotes then
+        Remotes = ReplicatedStorage:WaitForChild("Remotes", timeout or 5)
+    end
+    if not Remotes then return nil end
+    return Remotes:FindFirstChild(name) or Remotes:WaitForChild(name, timeout or 5)
+end
+
+local v4 = safeRemote("Throw_Start")
+local v6 = safeRemote("Throw_Resolve")
+local v8 = safeRemote("Throw_Complete")
+local v10 = safeRemote("Shop_Buy")
+local v12 = safeRemote("Shop_Equip")
+local v14 = safeRemote("Stand_Upgrade")
+local v16 = safeRemote("Training_Start")
+local v18 = safeRemote("Training_Stop")
+local v20 = safeRemote("Plot_SellAll")
+local v22 = safeRemote("Plot_SellAnimal")
+local v24 = safeRemote("Plot_EquipBest")
+
+-- ============================================================
+-- 4. VERİ ERİŞİMİ
+-- ============================================================
+local v38
+
+local function func(arg1)
+    if not arg1 or not arg1:IsA("ModuleScript") then return nil end
+    local ok, result = pcall(require, arg1)
+    if ok and type(result) == "table" then return result end
+    local v1 = getgenv and getgenv() or _G
+    local v2 = v1.setthreadidentity or v1.setidentity
+    local v3 = v1.getthreadidentity or v1.getidentity
+    if v2 and v3 then
+        local v4 = v3()
+        v2(2)
+        local ok1, result1 = pcall(require, arg1)
+        v2(v4)
+        if ok1 and type(result1) == "table" then return result1 end
+    end
+    return nil
+end
+
+local function func1()
+    if v38 then return v38 end
+    local ps = LocalPlayer1:FindFirstChild("PlayerScripts")
+    local dc = ps and ps:FindFirstChild("Client")
+        and ps.Client:FindFirstChild("Controllers")
+        and ps.Client.Controllers:FindFirstChild("DataController")
+    if dc then
+        v38 = func(dc)
+        if v38 then return v38 end
+    end
+    return nil
+end
+
+local Config = ReplicatedStorage:FindFirstChild("Config")
+local v26 = Config and func(Config:FindFirstChild("FoodsConfig"))
+local v27 = Config and func(Config:FindFirstChild("StandsConfig"))
+local v28 = Config and func(Config:FindFirstChild("RarityConfig"))
+local v29 = Config and func(Config:FindFirstChild("AnimalEconomy"))
+local v30 = Config and func(Config:FindFirstChild("MutationsConfig"))
+
+local tbl = {0,30,150,4000,20000,200000,1000000,12000000,60000000,650000000,3200000000,30000000000,150000000000,1300000000000,6800000000000,57000000000000,1500000000000000,50000000000000000,120000000000000000,4000000000000000000,18000000000000000000,120000000000000000000,700000000000000000000,4000000000000000000000,27000000000000000000000,180000000000000000000000,450000000000000000000000,1400000000000000000000000,3500000000000000000000000,2500000000000000000000000000,28000000000000000000000000000,250000000000000000000000000000,750000000000000000000000000000000,8500000000000000000000000000000000,75000000000000000000000000000000000,18000000000000000000000000000000000000,200000000000000000000000000000000000000,1800000000000000000000000000000000000000}
+local tbl1 = {1,50,2000,12000,100000,600000,6000000,38000000,320000000,2000000000,15000000000,90000000000,680000000000,4200000000000,28000000000000,170000000000000,1200000000000000,7000000000000000,50000000000000000,300000000000000000,2000000000000000000,12000000000000000000,80000000000000000000,500000000000000000000,3000000000000000000000,18000000000000000000000,120000000000000000000000,700000000000000000000000,3000000000000000000000000,300000000000000000000000000,6000000000000000000000000000,60000000000000000000000000000,500000000000000000000000000000,2500000000000000000000000000000,90000000000000000000000000000000,1800000000000000000000000000000000,18000000000000000000000000000000000,2200000000000000000000000000000000000,45000000000000000000000000000000000000,450000000000000000000000000000000000000}
+local tbl2 = {"Common","Uncommon","Rare","Epic","Legendary","Mythic","Secret","Divine","Celestial","Eternal","Cosmic","Supreme"}
+local tbl3 = {"None","Gold","Diamond","Emerald","Ruby","Rainbow"}
+
+local tbl4 = (v26 and type(v26.List) == "table" and #v26.List > 0) and (function()
+    local t = {}
+    for i, v in ipairs(v26.List) do t[i] = v.Price or 0 end
+    return t
+end)() or tbl
+
+local tbl5 = (v27 and type(v27.List) == "table" and #v27.List > 0) and (function()
+    local t = {}
+    for i, v in ipairs(v27.List) do t[i] = v.Price or 0 end
+    return t
+end)() or tbl1
+
+local tbl6 = (v28 and type(v28.List) == "table" and #v28.List > 0) and (function()
+    local t = {}
+    for _, v in ipairs(v28.List) do
+        local n = type(v) == "table" and (v.Name or v[1]) or v
+        if n then table.insert(t, tostring(n)) end
+    end
+    return t
+end)() or tbl2
+
+local v35 = (v30 and type(v30.List) == "table" and #v30.List > 0) and (function()
+    local t = {"None"}
+    for _, v in ipairs(v30.List) do
+        local n = type(v) == "table" and (v.Name or v[1]) or v
+        if n then table.insert(t, tostring(n)) end
+    end
+    return t
+end)() or tbl3
+
+local tbl8 = {}
+if v29 and type(v29.List) == "table" then
+    for k in pairs(v29.List) do table.insert(tbl8, tostring(k)) end
+    table.sort(tbl8)
+end
+
+-- ============================================================
+-- 5. YARDIMCI FONKSİYONLAR
+-- ============================================================
+local function func2()
+    local v1 = func1()
+    if v1 and v1.Get then
+        local v2 = v1:Get("Money")
+        if type(v2) == "number" then return v2 end
+    end
+    local ls = LocalPlayer1:FindFirstChild("leaderstats")
+    local m = ls and ls:FindFirstChild("Money")
+    if m and m:IsA("ValueBase") then
+        return tonumber(tostring(m.Value):gsub("[%$,%s]", "")) or 0
+    end
+    return 0
+end
+
+local function func3()
+    local v1 = func1()
+    if v1 and v1.Get then
+        local v2 = v1:Get("EquippedFood")
+        if type(v2) == "number" then return v2 end
+    end
+    return 1
+end
+
+local function func4()
+    local v1 = func1()
+    if v1 and v1.Get then
+        local v2 = v1:Get("Stand")
+        if type(v2) == "number" then return v2 end
+    end
+    return 0
+end
+
+local function func5()
+    local idx = tostring(LocalPlayer1:GetAttribute("PlotIndex") or "")
+    if idx ~= "" and Workspace:FindFirstChild("Plots") then
+        return Workspace.Plots:FindFirstChild(idx)
+    end
+    return nil
+end
+
+local function func6()
+    local LPP = Workspace:FindFirstChild("LocalPlotProps")
+    local v1 = LPP and LPP:FindFirstChild("TrainingArea") and LPP.TrainingArea:FindFirstChild("TrainingSpot")
+    if v1 and v1:IsA("BasePart") then return v1.CFrame + Vector3.new(0,3.2,0) end
+    local v2 = func5()
+    local v3 = v2 and v2:FindFirstChild("Server") and v2.Server:FindFirstChild("PullUpStand")
+    if v3 then
+        local v4 = v3:FindFirstChild("Bar") and v3.Bar:FindFirstChild("Main")
+        if v4 and v4:IsA("BasePart") then return CFrame.new(v4.Position.X, 5.7, v4.Position.Z) end
+        return v3:GetPivot() + Vector3.new(0,3.2,0)
+    end
+    return nil
+end
+
+local function func7()
+    local LPP = Workspace:FindFirstChild("LocalPlotProps")
+    local v1 = LPP and LPP:FindFirstChild("TrainingArea") and LPP.TrainingArea:FindFirstChild("TrainingSpot") and LPP.TrainingArea.TrainingSpot:FindFirstChild("UpgradeButton")
+    if v1 and v1:IsA("BasePart") then return v1.CFrame + Vector3.new(0,3.2,0) end
+    local v2 = func6()
+    if v2 then return CFrame.new(v2.Position.X, 5.7, -16.5) end
+    return nil
+end
+
+local function func8()
+    local LPP = Workspace:FindFirstChild("LocalPlotProps")
+    local v1 = LPP and LPP:FindFirstChild("FoodShop")
+    if v1 then
+        local ac = v1:FindFirstChild("ActivationCircle")
+        if ac and ac:IsA("BasePart") then return ac.CFrame + Vector3.new(0,3.2,0) end
+        return v1:GetPivot() + Vector3.new(0,3.2,0)
+    end
+    local v2 = func6()
+    if v2 then return CFrame.new(v2.Position.X + 26.53, 5.7, -8.3) end
+    return nil
+end
+
+local function func9()
+    local v1 = func5()
+    if v1 then
+        local v2 = v1:FindFirstChild("Server") and v1.Server:FindFirstChild("PullUpStand")
+        if v2 then
+            local v3 = v2:FindFirstChild("Bar") and v2.Bar:FindFirstChild("Main")
+            if v3 and v3:IsA("BasePart") then return CFrame.new(v3.Position.X + 16, 5.5, 22.5) end
+        end
+        return v1:GetPivot() + Vector3.new(0,5.2,0)
+    end
+    return nil
+end
+
+local function func10(hum)
+    hum:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+    hum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
+    hum.StateChanged:Connect(function(_, s)
+        if s == Enum.HumanoidStateType.Ragdoll or s == Enum.HumanoidStateType.FallingDown then
+            hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+        end
+    end)
+end
+
+local function func11(cf)
+    if not cf then return end
+    local char = LocalPlayer1.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hrp and hrp:IsA("BasePart") then
+        hrp.CFrame = cf
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.AssemblyAngularVelocity = Vector3.zero
+        if hum then hum:ChangeState(Enum.HumanoidStateType.GettingUp) end
+    end
+end
+
+-- ============================================================
+-- 6. UI OLUŞTURMA
+-- ============================================================
+local Window
+local ok, err = pcall(function()
+    Window = module:CreateWindow({
+        Title = "  Kryvex | TFFA ",
+        MinWidth = 560,
+        MinHeight = 540,
+    })
+end)
+
+if not ok or not Window then
+    warn("[Kryvex] CreateWindow başarısız: " .. tostring(err))
+    -- Fallback: sadece konsola yaz
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "KryvexError"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.Parent = game:GetService("CoreGui")
+    local F = Instance.new("Frame")
+    F.Size = UDim2.new(0, 400, 0, 150)
+    F.Position = UDim2.new(0.5, -200, 0.5, -75)
+    F.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+    F.Parent = ScreenGui
+    local L = Instance.new("TextLabel")
+    L.Size = UDim2.new(1, -20, 1, -20)
+    L.Position = UDim2.new(0, 10, 0, 10)
+    L.BackgroundTransparency = 1
+    L.TextColor3 = Color3.new(1,1,1)
+    L.Font = Enum.Font.Gotham
+    L.TextSize = 14
+    L.TextWrapped = true
+    L.Text = "Kryvex yüklenemedi!\n\nHata: " .. tostring(err) .. "\n\nExecutor'ının loadstring ve HTTP desteğini kontrol et."
+    L.Parent = F
+    return
+end
+
+local autoFarmTab = Window:CreateTab("Auto Farm")
+local playerTab = Window:CreateTab("Player")
+local kryvexTab = Window:CreateTab("Kryvex")
+
+-- ============================================================
+-- 7. AUTO FARM MANTIĞI
+-- ============================================================
+local flag = false
+
+local function func12()
+    while flag do
+        if v4 and v6 and v8 then
+            func11(CFrame.new(0, 5.7, -37))
+            task.wait(0.1)
+            pcall(function() v4:InvokeServer() end)
+            task.wait(0.1)
+            if not flag then break end
+            pcall(function() v6:InvokeServer(1) end)
+            task.wait(0.1)
+            if not flag then break end
+            pcall(function() v8:InvokeServer() end)
+        else
+            task.wait(0.5)
+        end
+        task.wait(0.1)
+    end
+end
+
+autoFarmTab:AddToggle("Auto Farm", function(s)
+    flag = s
+    if s then task.spawn(func12) end
+end)
+
+local function func13()
+    if not v10 or not v12 then return end
+    local v1 = func1()
+    local v2 = v1 and v1.Get and v1:Get("OwnedFoods")
+    local v3 = type(v2) == "table" and v2 or nil
+    local v4 = func2()
+    local v5 = #tbl4
+    local v9
+    local v6 = v5
+    if v5 >= 1 then
+        while v6 >= 1 do
+            local owned = v3 and (v3[v6] == true or v3[tostring(v6)] == true) or (v6 == 1)
+            if not owned then
+                local price = tbl4[v6]
+                if price and price <= v4 then v9 = v6 break end
+            end
+            v6 = v6 - 1
+        end
+    end
+    if v9 then
+        local v11 = func8()
+        if v11 then func11(v11) task.wait(0.3) end
+        local r
+        pcall(function() r = v10:InvokeServer(v9) end)
+        if r and (r.Ok or r == true) then
+            task.wait(0.1)
+            pcall(function() v12:InvokeServer(v9) end)
+        end
+    else
+        local num = 1
+        local v13 = v5
+        while v13 >= 1 do
+            local owned = v3 and (v3[v13] == true or v3[tostring(v13)] == true) or (v13 == 1)
+            if owned then num = v13 break end
+            v13 = v13 - 1
+        end
+        if func3() ~= num then
+            pcall(function() v12:InvokeServer(num) end)
+        end
+    end
+end
+
+local flag1 = false
+local function func14()
+    while flag1 do func13() task.wait(1) end
+end
+autoFarmTab:AddToggle("Auto Buy Best Food", function(s)
+    flag1 = s
+    if s then task.spawn(func14) end
+end)
+
+local function func15()
+    if not v14 then return end
+    local money = func2()
+    local stand = func4()
+    local price = tbl5[stand + 1]
+    if price and price <= money then
+        local v = func7()
+        if v then func11(v) task.wait(0.3) end
+        pcall(function() v14:InvokeServer() end)
+    end
+end
+
+local flag2 = false
+local function func16()
+    while flag2 do func15() task.wait(1) end
+end
+autoFarmTab:AddToggle("Auto Stand Upgrade", function(s)
+    flag2 = s
+    if s then task.spawn(func16) end
+end)
+
+autoFarmTab:AddToggle("Auto Train", function(s)
+    if s then
+        local v = func6()
+        if v then func11(v) end
+        task.wait(0.4)
+        if v16 then task.spawn(function() pcall(function() v16:InvokeServer() end) end) end
+    elseif v18 then
+        task.spawn(function() pcall(function() v18:InvokeServer() end) end)
+    end
+end)
+
+local flag3 = false
+local function func17()
+    while flag3 do
+        local t0 = os.clock()
+        while flag3 and os.clock() - t0 < 30 do
+            if v4 and v6 and v8 then
+                func11(CFrame.new(0, 5.7, -37))
+                task.wait(0.1)
+                pcall(function() v4:InvokeServer() end)
+                task.wait(0.1)
+                if not flag3 then break end
+                pcall(function() v6:InvokeServer(1) end)
+                task.wait(1)
+                if not flag3 then break end
+                pcall(function() v8:InvokeServer() end)
+            else task.wait(0.5) end
+            task.wait(0.1)
+        end
+        if flag3 then
+            func13() task.wait(0.3)
+            if flag3 then
+                func15() task.wait(0.3)
+                if flag3 then
+                    local v = func6()
+                    if v then func11(v) end
+                    task.wait(0.4)
+                    if v16 then task.spawn(function() pcall(function() v16:InvokeServer() end) end) end
+                    local t1 = os.clock()
+                    while flag3 and os.clock() - t1 < 30 do task.wait(0.5) end
+                    if v18 then task.spawn(function() pcall(function() v18:InvokeServer() end) end) end
+                    task.wait(0.5)
+                end
+            end
+        end
+    end
+end
+autoFarmTab:AddToggle("Auto Train & Cycle", function(s)
+    flag3 = s
+    if s then task.spawn(func17) end
+end)
+
+local flag4 = false
+local function func18()
+    while flag4 do
+        if v24 then pcall(function() v24:InvokeServer() end) end
+        task.wait(10)
+    end
+end
+autoFarmTab:AddToggle("Auto Equip Best", function(s)
+    flag4 = s
+    if s then
+        if v24 then pcall(function() v24:InvokeServer() end) end
+        task.spawn(func18)
+    end
+end)
+
+-- ============================================================
+-- 8. PLAYER SEKMESİ
+-- ============================================================
+playerTab:AddLabel("MOVEMENT")
+playerTab:AddButton("Teleport To Plot", function() local c = func9() if c then func11(c) end end)
+playerTab:AddButton("Teleport To Stand", function() local c = func6() if c then func11(c) end end)
+playerTab:AddButton("Teleport To Food Shop", function() local c = func8() if c then func11(c) end end)
+
+local num = 20
+local num1 = 50
+
+local function func19(char)
+    local hum = char:WaitForChild("Humanoid", 3)
+    if hum and hum:IsA("Humanoid") then
+        hum.WalkSpeed = num
+        hum.JumpHeight = num1
+        func10(hum)
+    end
+end
+
+if LocalPlayer1.Character then func19(LocalPlayer1.Character) end
+LocalPlayer1.CharacterAdded:Connect(func19)
+
+playerTab:AddSlider("Walkspeed", 20, 250, num, function(v)
+    num = v
+    local hum = LocalPlayer1.Character and LocalPlayer1.Character:FindFirstChild("Humanoid")
+    if hum and hum:IsA("Humanoid") then hum.WalkSpeed = v end
+end)
+
+playerTab:AddSlider("Jump Height", 50, 250, num1, function(v)
+    num1 = v
+    local hum = LocalPlayer1.Character and LocalPlayer1.Character:FindFirstChild("Humanoid")
+    if hum and hum:IsA("Humanoid") then hum.JumpHeight = v end
+end)
+
+local flag5 = false
+local num2 = 50
+local v39
+
+local function func20(state)
+    flag5 = state
+    if v39 then v39:Disconnect() v39 = nil end
+    local hrp = LocalPlayer1.Character and LocalPlayer1.Character:FindFirstChild("HumanoidRootPart")
+    if not state then
+        if hrp and hrp:IsA("BasePart") then hrp.AssemblyLinearVelocity = Vector3.zero end
+        return
+    end
+    local cam = Workspace.CurrentCamera
+    v39 = RunService.RenderStepped:Connect(function()
+        if not flag5 then return end
+        local char = LocalPlayer1.Character
+        local hrp2 = char and char:FindFirstChild("HumanoidRootPart")
+        local hum = char and char:FindFirstChild("Humanoid")
+        if not hrp2 or not hrp2:IsA("BasePart") or not hum or not cam then return end
+        local dir = Vector3.zero
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir = dir + cam.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir = dir - cam.CFrame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then dir = dir - cam.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then dir = dir + cam.CFrame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.new(0,1,0) end
+        if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then dir = dir - Vector3.new(0,1,0) end
+        hrp2.AssemblyLinearVelocity = dir.Magnitude > 0 and dir.Unit * num2 or Vector3.zero
+        hrp2.AssemblyAngularVelocity = Vector3.zero
+    end)
+end
+
+playerTab:AddToggle("Fly", func20)
+playerTab:AddSlider("Fly Speed", 10, 300, num2, function(v) num2 = v end)
+
+local flag6 = false
+local v40
+
+playerTab:AddToggle("Noclip", function(state)
+    flag6 = state
+    if v40 then v40:Disconnect() v40 = nil end
+    if state then
+        v40 = RunService.Stepped:Connect(function()
+            if not flag6 then return end
+            local char = LocalPlayer1.Character
+            if not char then return end
+            for _, d in ipairs(char:GetDescendants()) do
+                if d:IsA("BasePart") and d.CanCollide then d.CanCollide = false end
+            end
+        end)
+    end
+end)
+
+-- ============================================================
+-- 9. AUTO SELL
+-- ============================================================
+playerTab:AddSeparator()
+playerTab:AddLabel("AUTO SELL")
+local flag7 = false
+local tbl9, tbl10, tbl11 = {}, {}, {}
+
+local function func21()
+    for _, v in pairs(tbl9) do if v == true then return true end end
+    for _, v in pairs(tbl10) do if v == true then return true end end
+    for _, v in pairs(tbl11) do if v == true then return true end end
+    return false
+end
+
+local function func22()
+    while flag7 do
+        local bp = LocalPlayer1:FindFirstChild("Backpack")
+        local char = LocalPlayer1.Character
+        local tools = {}
+        if bp then for _, c in ipairs(bp:GetChildren()) do if c:IsA("Tool") and c:GetAttribute("AnimalId") ~= nil then table.insert(tools, c) end end end
+        if char then for _, c in ipairs(char:GetChildren()) do if c:IsA("Tool") and c:GetAttribute("AnimalId") ~= nil then table.insert(tools, c) end end end
+        if #tools > 0 then
+            if not func21() then
+                if v20 then pcall(function() v20:InvokeServer() end) end
+            else
+                local f1 = false for _, v in pairs(tbl9) do if v == true then f1 = true break end end
+                local f2 = false for _, v in pairs(tbl10) do if v == true then f2 = true break end end
+                local f3 = false for _, v in pairs(tbl11) do if v == true then f3 = true break end end
+                for _, tool in ipairs(tools) do
+                    if not flag7 then break end
+                    local aid = tool:GetAttribute("AnimalId")
+                    local name = tool:GetAttribute("AnimalName") or tool.Name
+                    local rarity = tool:GetAttribute("Rarity") or "Common"
+                    local mut = tool:GetAttribute("Mutation")
+                    local okR = not f1 or tbl9[rarity] == true
+                    local okM = not f2 or tbl10[mut or "None"] == true
+                    local okN = not f3 or tbl11[name] == true
+                    if okR and okM and okN and aid and v22 then
+                        pcall(function() v22:InvokeServer(aid) end)
+                        task.wait(0.1)
+                    end
+                end
+            end
+        end
+        task.wait(1)
+    end
+end
+
+playerTab:AddToggle("Auto Sell Animals", function(s) flag7 = s if s then task.spawn(func22) end end)
+playerTab:AddDropdown("Select Tier To Sell", tbl6, function(v) tbl9 = v end)
+playerTab:AddDropdown("Select Mutations To Sell", v35, function(v) tbl10 = v end)
+playerTab:AddDropdown("Select Animals To Sell", tbl8, function(v) tbl11 = v end)
+
+-- ============================================================
+-- 10. KRYVEX SEKMESİ
+-- ============================================================
+kryvexTab:AddLabel("Kryvex | TFFA")
+kryvexTab:AddLabel("Version: 2.1 (Safe Mode)")
+kryvexTab:AddLabel("Yazar: kryvex.gg")
+kryvexTab:AddSeparator()
+
+local kFull = false
+local kAFK = false
+local kRespawn = false
+
+kryvexTab:AddToggle("Fullbright", function(s)
+    kFull = s
+    if s then
+        Lighting.Brightness = 3
+        Lighting.ClockTime = 12
+        Lighting.FogEnd = 100000
+        Lighting.GlobalShadows = false
+    else
+        Lighting.Brightness = 2
+        Lighting.ClockTime = 14
+        Lighting.FogEnd = 1000
+        Lighting.GlobalShadows = true
+    end
+end, false)
+
+kryvexTab:AddToggle("Anti-AFK", function(s)
+    kAFK = s
+    if s then
+        task.spawn(function()
+            while kAFK do
+                pcall(function()
+                    local vu = game:GetService("VirtualUser")
+                    LocalPlayer1.Idled:Connect(function()
+                        vu:Button2Down(Vector2.new(0,0), Workspace.CurrentCamera.CFrame)
+                        task.wait(1)
+                        vu:Button2Up(Vector2.new(0,0), Workspace.CurrentCamera.CFrame)
+                    end)
+                end)
+                task.wait(60)
+            end
+        end)
+    end
+end, false)
+
+kryvexTab:AddToggle("Auto Respawn", function(s)
+    kRespawn = s
+    if s then
+        task.spawn(function()
+            while kRespawn do
+                pcall(function()
+                    local char = LocalPlayer1.Character
+                    local hum = char and char:FindFirstChildOfClass("Humanoid")
+                    if not hum or hum.Health <= 0 then
+                        LocalPlayer1:LoadCharacter()
+                    end
+                end)
+                task.wait(2)
+            end
+        end)
+    end
+end, false)
+
+kryvexTab:AddButton("Discord'a Katıl", function()
+    setclipboard("https://discord.gg/kryvex")
+    print("[Kryvex] Discord linki panoya kopyalandı!")
+end)

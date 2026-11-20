@@ -1,0 +1,243 @@
+-- KRYVEX // AFK - Custom Red Panel UI
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Stats = game:GetService("Stats")
+local VirtualUser = game:GetService("VirtualUser")
+local CoreGui = game:GetService("CoreGui")
+
+local LocalPlayer = Players.LocalPlayer
+
+-- Remove previous UI if re-executed
+pcall(function()
+    if CoreGui:FindFirstChild("KryvexAFK_Panel") then
+        CoreGui:FindFirstChild("KryvexAFK_Panel"):Destroy()
+    elseif LocalPlayer:FindFirstChild("PlayerGui") and LocalPlayer.PlayerGui:FindFirstChild("KryvexAFK_Panel") then
+        LocalPlayer.PlayerGui:FindFirstChild("KryvexAFK_Panel"):Destroy()
+    end
+end)
+
+-- ScreenGui
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "KryvexAFK_Panel"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
+
+pcall(function()
+    ScreenGui.Parent = CoreGui
+end)
+if not ScreenGui.Parent then
+    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end
+
+-- Main Container
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 248, 0, 162)
+MainFrame.Position = UDim2.new(1, -268, 0, 24)
+MainFrame.BackgroundColor3 = Color3.fromRGB(26, 8, 10)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 10)
+MainCorner.Parent = MainFrame
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = Color3.fromRGB(235, 38, 52)
+MainStroke.Thickness = 1.8
+MainStroke.Parent = MainFrame
+
+-- Top Header Bar
+local Header = Instance.new("Frame")
+Header.Name = "Header"
+Header.Size = UDim2.new(1, 0, 0, 34)
+Header.BackgroundColor3 = Color3.fromRGB(145, 16, 26)
+Header.BorderSizePixel = 0
+Header.Parent = MainFrame
+
+local HeaderCorner = Instance.new("UICorner")
+HeaderCorner.CornerRadius = UDim.new(0, 10)
+HeaderCorner.Parent = Header
+
+local HeaderFix = Instance.new("Frame")
+HeaderFix.Size = UDim2.new(1, 0, 0, 10)
+HeaderFix.Position = UDim2.new(0, 0, 1, -10)
+HeaderFix.BackgroundColor3 = Color3.fromRGB(145, 16, 26)
+HeaderFix.BorderSizePixel = 0
+HeaderFix.Parent = Header
+
+local HeaderGradient = Instance.new("UIGradient")
+HeaderGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(210, 25, 38)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(115, 12, 20))
+})
+HeaderGradient.Rotation = 0
+HeaderGradient.Parent = Header
+HeaderGradient:Clone().Parent = HeaderFix
+
+-- Status Dot + Title: KRYVEX // AFK
+local StatusDot = Instance.new("Frame")
+StatusDot.Size = UDim2.new(0, 8, 0, 8)
+StatusDot.Position = UDim2.new(0, 12, 0.5, -4)
+StatusDot.BackgroundColor3 = Color3.fromRGB(255, 120, 120)
+StatusDot.BorderSizePixel = 0
+StatusDot.Parent = Header
+
+local DotCorner = Instance.new("UICorner")
+DotCorner.CornerRadius = UDim.new(1, 0)
+DotCorner.Parent = StatusDot
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, -30, 1, 0)
+TitleLabel.Position = UDim2.new(0, 26, 0, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "KRYVEX // AFK"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.Font = Enum.Font.GothamBlack
+TitleLabel.TextSize = 15
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.Parent = Header
+
+-- Content Area
+local Body = Instance.new("Frame")
+Body.Name = "Body"
+Body.Size = UDim2.new(1, -20, 1, -46)
+Body.Position = UDim2.new(0, 10, 0, 40)
+Body.BackgroundTransparency = 1
+Body.Parent = MainFrame
+
+local BodyLayout = Instance.new("UIListLayout")
+BodyLayout.Padding = UDim.new(0, 6)
+BodyLayout.SortOrder = Enum.SortOrder.LayoutOrder
+BodyLayout.Parent = Body
+
+-- Timer Banner (00:00:00)
+local TimerBox = Instance.new("Frame")
+TimerBox.Size = UDim2.new(1, 0, 0, 38)
+TimerBox.BackgroundColor3 = Color3.fromRGB(58, 12, 16)
+TimerBox.BorderSizePixel = 0
+TimerBox.LayoutOrder = 1
+TimerBox.Parent = Body
+
+local TimerCorner = Instance.new("UICorner")
+TimerCorner.CornerRadius = UDim.new(0, 7)
+TimerCorner.Parent = TimerBox
+
+local TimerStroke = Instance.new("UIStroke")
+TimerStroke.Color = Color3.fromRGB(165, 28, 38)
+TimerStroke.Thickness = 1
+TimerStroke.Parent = TimerBox
+
+local TimeLabel = Instance.new("TextLabel")
+TimeLabel.Size = UDim2.new(1, 0, 1, 0)
+TimeLabel.BackgroundTransparency = 1
+TimeLabel.Text = "00:00:00"
+TimeLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TimeLabel.Font = Enum.Font.Code
+TimeLabel.TextSize = 21
+TimeLabel.Parent = TimerBox
+
+-- Bottom Row: FPS & Ping Cards
+local BottomRow = Instance.new("Frame")
+BottomRow.Size = UDim2.new(1, 0, 0, 62)
+BottomRow.BackgroundTransparency = 1
+BottomRow.LayoutOrder = 2
+BottomRow.Parent = Body
+
+local RowLayout = Instance.new("UIListLayout")
+RowLayout.FillDirection = Enum.FillDirection.Horizontal
+RowLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+RowLayout.Padding = UDim.new(0, 8)
+RowLayout.Parent = BottomRow
+
+local function CreateMiniCard(caption, initialValue)
+    local card = Instance.new("Frame")
+    card.Size = UDim2.new(0.5, -4, 1, 0)
+    card.BackgroundColor3 = Color3.fromRGB(44, 10, 14)
+    card.BorderSizePixel = 0
+    card.Parent = BottomRow
+
+    local cCorner = Instance.new("UICorner")
+    cCorner.CornerRadius = UDim.new(0, 7)
+    cCorner.Parent = card
+
+    local cStroke = Instance.new("UIStroke")
+    cStroke.Color = Color3.fromRGB(130, 22, 30)
+    cStroke.Thickness = 1
+    cStroke.Parent = card
+
+    local capLbl = Instance.new("TextLabel")
+    capLbl.Size = UDim2.new(1, 0, 0, 20)
+    capLbl.Position = UDim2.new(0, 0, 0, 6)
+    capLbl.BackgroundTransparency = 1
+    capLbl.Text = caption
+    capLbl.TextColor3 = Color3.fromRGB(255, 130, 138)
+    capLbl.Font = Enum.Font.GothamBold
+    capLbl.TextSize = 11
+    capLbl.Parent = card
+
+    local valLbl = Instance.new("TextLabel")
+    valLbl.Size = UDim2.new(1, 0, 0, 26)
+    valLbl.Position = UDim2.new(0, 0, 0, 25)
+    valLbl.BackgroundTransparency = 1
+    valLbl.Text = initialValue
+    valLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+    valLbl.Font = Enum.Font.GothamBold
+    valLbl.TextSize = 15
+    valLbl.Parent = card
+
+    return valLbl
+end
+
+local FPSValueLabel = CreateMiniCard("FPS", "60")
+local PingValueLabel = CreateMiniCard("PING", "0 ms")
+
+-- Universal Anti-AFK
+LocalPlayer.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+end)
+
+-- Format seconds into HH:MM:SS
+local function FormatTime(totalSeconds)
+    local hours = math.floor(totalSeconds / 3600)
+    local minutes = math.floor((totalSeconds % 3600) / 60)
+    local seconds = math.floor(totalSeconds % 60)
+    return string.format("%02d:%02d:%02d", hours, minutes, seconds)
+end
+
+-- Live Stats Loop
+local startTime = os.clock()
+local frameCount = 0
+local lastFpsCheck = os.clock()
+local currentFps = 60
+
+RunService.RenderStepped:Connect(function()
+    frameCount += 1
+    local now = os.clock()
+    if now - lastFpsCheck >= 0.5 then
+        currentFps = math.floor(frameCount / (now - lastFpsCheck))
+        frameCount = 0
+        lastFpsCheck = now
+    end
+end)
+
+task.spawn(function()
+    while task.wait(0.2) do
+        if not ScreenGui or not ScreenGui.Parent then
+            break
+        end
+
+        local elapsed = os.clock() - startTime
+        TimeLabel.Text = FormatTime(elapsed)
+        FPSValueLabel.Text = tostring(currentFps)
+
+        local ping = 0
+        pcall(function()
+            ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue())
+        end)
+        PingValueLabel.Text = string.format("%d ms", ping)
+    end
+end)
